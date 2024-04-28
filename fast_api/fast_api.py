@@ -6,7 +6,7 @@ import pprint
 
 from pathlib import Path
 from typing import List, Optional
-from fastapi import FastAPI, Request, HTTPException, Query, status
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from wcferry import Wcf
 
@@ -48,34 +48,38 @@ async def startup_event():
     robot.keepRunningAndBlockProcess()
 
 
-
 @app.on_event('shutdown')
 async def shutdown_event():
     wcf.cleanup()  # 退出前清理环境
 
 
-# @app.post("/send", response_model=NormalResponse)
-# async def send():
-#     dte_manager = await create_send()
-#     return NormalResponse(data="success")
+@app.get("/get_friends")
+async def get_friends():
+    friends = wcf.get_friends()
+    return friends
 
 
-@app.post("/sync_messages")
-async def sync_messages(userid: str, messages: dict = None, return_data: bool = False):
-    if userid != verify_userid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect userid",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    massage_job = MessageHistory()
-    global qy_kf_custom
-    with lock:
-        if messages:
-            qy_kf_custom = massage_job.sync(messages)
-        else:
-            qy_kf_custom = massage_job.sync(qy_kf_custom)
-    return qy_kf_custom if return_data else ""
+@app.get("/get_chatroom_members")
+async def get_chatroom_members(roomid: str):
+    members = wcf.get_chatroom_members(roomid)
+    return members
 
+
+@app.get("/revoke_msg")
+async def revoke_msg(id: int):
+    status = wcf.revoke_msg(id)
+    return status
+
+
+@app.post("/send_text")
+async def send_text(msg: str, receiver: str, aters: Optional[str] = ""):
+    status = wcf.send_text(msg, receiver, aters)
+    return status
+
+
+@app.post("/send_rich_text")
+async def send_rich_text(name: str, account: str, title: str, digest: str, url: str, thumburl: str, receiver: str):
+    status = wcf.send_rich_text(name, account, title, digest, url, thumburl, receiver)
+    return status
 
 
