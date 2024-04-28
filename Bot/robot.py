@@ -9,8 +9,8 @@ from datetime import datetime
 
 from utils.log import logger_manager
 from utils.singleton import singleton
-from job_mgmt import Job
 
+from Bot.job_mgmt import Job
 from Bot.plugins.pokeme import pokeme_reply
 from Bot.plugins.tiangou import get_yulu
 
