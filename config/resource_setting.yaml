@@ -1,0 +1,25 @@
+qyapi:
+  base_url: 'https://qyapi.weixin.qq.com/'
+
+  qiye_id: ""
+  kefu_Secret: ""
+  sToken: ""
+  sEncodingAESKey: ""
+
+
+chatgpt:
+  proxy: "http://127.0.0.1:7890"
+  model_name: "gpt-3.5-turbo-1106"
+  api_key: "sk-xx"
+  api_key_option: [
+    "sk-xx",
+    "sk-xx",
+    "sk-xx",
+  ]
+
+
+secret:
+  verify_userid: "xxx"
+
+port: 9981
+wx_official_check: False
