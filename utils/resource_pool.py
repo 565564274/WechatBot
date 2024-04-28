@@ -25,8 +25,8 @@ class ResourcePool:
     def __init__(self, resource_file_name):
         self.resource_file_name = resource_file_name
         self.resource_file_base_path = DEFAULT_CONFIG_PATH
-        self.resource = self.load()
         self.GROUPS = None
+        self.resource = self.load()
 
     def load(self):
         # Load environment specific config file
