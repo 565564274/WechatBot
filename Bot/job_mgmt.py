@@ -4,9 +4,7 @@ import schedule
 from typing import Any, Callable
 
 
-class Job(object):
-    def __init__(self) -> None:
-        pass
+class Job:
 
     @staticmethod
     def onEverySeconds(seconds: int, task: Callable[..., Any], *args, **kwargs) -> None:

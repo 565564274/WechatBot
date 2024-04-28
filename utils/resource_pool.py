@@ -26,6 +26,7 @@ class ResourcePool:
         self.resource_file_name = resource_file_name
         self.resource_file_base_path = DEFAULT_CONFIG_PATH
         self.resource = self.load()
+        self.GROUPS = None
 
     def load(self):
         # Load environment specific config file
@@ -35,7 +36,9 @@ class ResourcePool:
             logger.info(
                 f"Local config found {resource_file_path}",
             )
-            return load_resource_from_yaml(resource_file_path)
+            yconfig = load_resource_from_yaml(resource_file_path)
+            self.GROUPS = yconfig["groups"]["enable"]
+            return yconfig
         else:
             logger.info(
                 f"Local config not found {resource_file_path}",

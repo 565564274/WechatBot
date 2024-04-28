@@ -1,4 +1,3 @@
-import logging
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -7,71 +6,64 @@ from wcferry import Wcf, WxMsg
 from queue import Empty
 from threading import Thread
 
+from utils.log import logger_manager
+from utils.singleton import singleton
+
 from job_mgmt import Job
 
 
-
-from base.func_zhipu import ZhiPu
-
-
-from base.func_bard import BardAssistant
-from base.func_chatglm import ChatGLM
-from base.func_chatgpt import ChatGPT
 from base.func_chengyu import cy
 from base.func_news import News
-from base.func_tigerbot import TigerBot
-from base.func_xinghuo_web import XinghuoWeb
 
 
+@singleton
 class Robot(Job):
 
     def __init__(self, config, wcf: Wcf, chat_type: int) -> None:
         self.wcf = wcf
         self.config = config
-        self.LOG = logging.getLogger("Robot")
+        self.LOG = logger_manager.logger
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
 
-        if ChatType.is_in_chat_types(chat_type):
-            if chat_type == ChatType.TIGER_BOT.value and TigerBot.value_check(self.config.TIGERBOT):
-                self.chat = TigerBot(self.config.TIGERBOT)
-            elif chat_type == ChatType.CHATGPT.value and ChatGPT.value_check(self.config.CHATGPT):
-                self.chat = ChatGPT(self.config.CHATGPT)
-            elif chat_type == ChatType.XINGHUO_WEB.value and XinghuoWeb.value_check(self.config.XINGHUO_WEB):
-                self.chat = XinghuoWeb(self.config.XINGHUO_WEB)
-            elif chat_type == ChatType.CHATGLM.value and ChatGLM.value_check(self.config.CHATGLM):
-                self.chat = ChatGLM(self.config.CHATGLM)
-            elif chat_type == ChatType.BardAssistant.value and BardAssistant.value_check(self.config.BardAssistant):
-                self.chat = BardAssistant(self.config.BardAssistant)
-            elif chat_type == ChatType.ZhiPu.value and ZhiPu.value_check(self.config.ZHIPU):
-                self.chat = ZhiPu(self.config.ZHIPU)
-            else:
-                self.LOG.warning("未配置模型")
-                self.chat = None
-        else:
-            if TigerBot.value_check(self.config.TIGERBOT):
-                self.chat = TigerBot(self.config.TIGERBOT)
-            elif ChatGPT.value_check(self.config.CHATGPT):
-                self.chat = ChatGPT(self.config.CHATGPT)
-            elif XinghuoWeb.value_check(self.config.XINGHUO_WEB):
-                self.chat = XinghuoWeb(self.config.XINGHUO_WEB)
-            elif ChatGLM.value_check(self.config.CHATGLM):
-                self.chat = ChatGLM(self.config.CHATGLM)
-            elif BardAssistant.value_check(self.config.BardAssistant):
-                self.chat = BardAssistant(self.config.BardAssistant)
-            elif ZhiPu.value_check(self.config.ZhiPu):
-                self.chat = ZhiPu(self.config.ZhiPu)
-            else:
-                self.LOG.warning("未配置模型")
-                self.chat = None
+    def processMsg(self, msg: WxMsg) -> None:
+        """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
+        此处可进行自定义发送的内容,如通过 msg.content 关键字自动获取当前天气信息，并发送到对应的群组@发送者
+        群号：msg.roomid  微信ID：msg.sender  消息内容：msg.content
+        content = "xx天气信息为："
+        receivers = msg.roomid
+        self.sendTextMsg(content, receivers, msg.sender)
+        """
 
-        self.LOG.info(f"已选择: {self.chat}")
+        # 群聊消息
+        if msg.from_group():
+            if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
+                return
 
-    @staticmethod
-    def value_check(args: dict) -> bool:
-        if args:
-            return all(value is not None for key, value in args.items() if key != 'proxy')
-        return False
+            # 如果在群里被 @
+            if msg.is_at(self.wxid):  # 被@
+                self.toAt(msg)
+
+            else:  # 其他消息
+                self.toChengyu(msg)
+
+            return  # 处理完群聊信息，后面就不需要处理了
+
+        # 非群聊信息，按消息类型进行处理
+        if msg.type == 37:  # 好友请求
+            self.autoAcceptFriendRequest(msg)
+
+        elif msg.type == 10000:  # 系统信息
+            self.sayHiToNewFriend(msg)
+
+        elif msg.type == 0x01:  # 文本消息
+            # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
+            if msg.from_self():
+                if msg.content == "^更新$":
+                    self.config.reload()
+                    self.LOG.info("已更新")
+            else:
+                self.toChitchat(msg)  # 闲聊
 
     def toAt(self, msg: WxMsg) -> bool:
         """处理被 @ 消息
@@ -126,57 +118,6 @@ class Robot(Job):
         else:
             self.LOG.error(f"无法从 ChatGPT 获得答案")
             return False
-
-    def processMsg(self, msg: WxMsg) -> None:
-        """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
-        此处可进行自定义发送的内容,如通过 msg.content 关键字自动获取当前天气信息，并发送到对应的群组@发送者
-        群号：msg.roomid  微信ID：msg.sender  消息内容：msg.content
-        content = "xx天气信息为："
-        receivers = msg.roomid
-        self.sendTextMsg(content, receivers, msg.sender)
-        """
-
-        # 群聊消息
-        if msg.from_group():
-            # 如果在群里被 @
-            if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
-                return
-
-            if msg.is_at(self.wxid):  # 被@
-                self.toAt(msg)
-
-            else:  # 其他消息
-                self.toChengyu(msg)
-
-            return  # 处理完群聊信息，后面就不需要处理了
-
-        # 非群聊信息，按消息类型进行处理
-        if msg.type == 37:  # 好友请求
-            self.autoAcceptFriendRequest(msg)
-
-        elif msg.type == 10000:  # 系统信息
-            self.sayHiToNewFriend(msg)
-
-        elif msg.type == 0x01:  # 文本消息
-            # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
-            if msg.from_self():
-                if msg.content == "^更新$":
-                    self.config.reload()
-                    self.LOG.info("已更新")
-            else:
-                self.toChitchat(msg)  # 闲聊
-
-    def onMsg(self, msg: WxMsg) -> int:
-        try:
-            self.LOG.info(msg)  # 打印信息
-            self.processMsg(msg)
-        except Exception as e:
-            self.LOG.error(e)
-
-        return 0
-
-    def enableRecvMsg(self) -> None:
-        self.wcf.enable_recv_msg(self.onMsg)
 
     def enableReceivingMsg(self) -> None:
         def innerProcessMsg(wcf: Wcf):
