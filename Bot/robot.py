@@ -5,21 +5,34 @@ import xml.etree.ElementTree as ET
 from wcferry import Wcf, WxMsg
 from queue import Empty
 from threading import Thread
+from datetime import datetime
 
 from utils.log import logger_manager
 from utils.singleton import singleton
-
 from job_mgmt import Job
 
+from Bot.plugins.pokeme import pokeme_reply
+from Bot.plugins.tiangou import get_yulu
 
-from base.func_chengyu import cy
-from base.func_news import News
+
+def new_str(self) -> str:
+    s = "=" * 16 + "\n"
+    s += f"{'自己发的:' if self._is_self else ''}"
+    s += f"{self.sender}[{self.roomid}]|{self.id}|{datetime.fromtimestamp(self.ts)}|{self.type}|{self.sign}"
+    s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}\n"
+    s += self.content
+    s += f"\nthumb: {self.thumb}" if self.thumb else ""
+    s += f"\nextra: {self.extra}" if self.extra else ""
+    return s
+
+
+WxMsg.__str__ = new_str
 
 
 @singleton
 class Robot(Job):
 
-    def __init__(self, config, wcf: Wcf, chat_type: int) -> None:
+    def __init__(self, config, wcf: Wcf) -> None:
         self.wcf = wcf
         self.config = config
         self.LOG = logger_manager.logger
@@ -45,6 +58,21 @@ class Robot(Job):
                 self.toAt(msg)
 
             else:  # 其他消息
+                if msg.type == 10000:  # 系统信息
+                    if "拍了拍我" in msg.content:
+                        # 处理拍一拍
+                        self.wcf.send_pat_msg(msg.roomid, msg.sender)
+                        return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
+                    else:
+                        self.LOG.info("msg.type == 10000 的其他消息")
+                        return
+                elif msg.is_text():  # 文本消息
+                    # 语录
+                    if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
+                        return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
+
+                else:
+                    return
                 self.toChengyu(msg)
 
             return  # 处理完群聊信息，后面就不需要处理了
