@@ -47,7 +47,7 @@ class Job:
         schedule.every(days).days.do(task, *args, **kwargs)
 
     @staticmethod
-    def onEveryTime(times: int, task: Callable[..., Any], *args, **kwargs) -> None:
+    def onEveryTime(times: str | list, task: Callable[..., Any], *args, **kwargs) -> None:
         """
         每天定时执行
         :param times: 时间字符串列表，格式:

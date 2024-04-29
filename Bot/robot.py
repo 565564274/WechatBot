@@ -12,11 +12,15 @@ from utils.singleton import singleton
 
 from Bot.job_mgmt import Job
 from Bot.plugins.pokeme import pokeme_reply
-from Bot.plugins.tiangou import get_yulu
+from Bot.plugins.qingganyulu import get_yulu
+from Bot.plugins.shadiao import shadiao
+from Bot.plugins.zhanan_lvcha import zhanan_lvcha
+from Bot.plugins.duanzi import duanzi
+from Bot.plugins.news import News
 
 
 def new_str(self) -> str:
-    s = "=" * 16 + "\n"
+    s = "=" * 32 * 6 + "\n"
     s += f"{'自己发的:' if self._is_self else ''}"
     s += f"{self.sender}[{self.roomid}]|{self.id}|{datetime.fromtimestamp(self.ts)}|{self.type}|{self.sign}"
     s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}\n"
@@ -50,6 +54,9 @@ class Robot(Job):
 
         # 群聊消息
         if msg.from_group():
+            # 如果在群里被administrators(创建者) @
+            if msg.is_at(self.wxid) and msg.sender == self.config.ADMIN:
+                return self.admin(msg)
             if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
                 return
 
@@ -60,17 +67,24 @@ class Robot(Job):
             else:  # 其他消息
                 if msg.type == 10000:  # 系统信息
                     if "拍了拍我" in msg.content:
-                        # 处理拍一拍
-                        self.wcf.send_pat_msg(msg.roomid, msg.sender)
+                        # 1.回复拍一拍
                         return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
                     else:
                         self.LOG.info("msg.type == 10000 的其他消息")
                         return
                 elif msg.is_text():  # 文本消息
-                    # 语录
                     if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
+                        # 2.情感语录
                         return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
-
+                    elif msg.content in ["疯狂星期四", "彩虹屁", "朋友圈", "朋友圈文案"]:
+                        # 3.傻屌语录
+                        return self.sendTextMsg(shadiao(msg.content), msg.roomid, msg.sender)
+                    elif msg.content in ["渣男", "绿茶"]:
+                        # 4.渣男&绿茶语录
+                        return self.sendTextMsg(zhanan_lvcha(msg.content), msg.roomid, msg.sender)
+                    elif msg.content in ["段子"]:
+                        # 5.段子
+                        return self.sendTextMsg(duanzi(), msg.roomid, msg.sender)
                 else:
                     return
                 self.toChengyu(msg)
@@ -92,6 +106,30 @@ class Robot(Job):
                     self.LOG.info("已更新")
             else:
                 self.toChitchat(msg)  # 闲聊
+
+    def admin(self, msg: WxMsg) -> None:
+        """
+        处理administrators(创建者)的@消息
+        :param msg: 微信消息结构
+        :return: 处理状态，`True` 成功，`False` 失败
+        """
+        q = re.sub(r"@.*?[\u2005|\s]", "", msg.content).replace(" ", "")
+        if q == "新增群聊":
+            if msg.roomid not in self.config.GROUPS:
+                self.config.resource["groups"]["enable"].append(msg.roomid)
+                self.config.rewrite_reload()
+                self.sendTextMsg("群聊已添加，可以开始使用。", msg.roomid, msg.sender)
+            else:
+                self.sendTextMsg("群聊已存在，无需操作。", msg.roomid, msg.sender)
+        elif q == "删除群聊":
+            if msg.roomid in self.config.GROUPS:
+                self.config.resource["groups"]["enable"].remove(msg.roomid)
+                self.config.rewrite_reload()
+                self.sendTextMsg("群聊已删除，机器人不再响应。", msg.roomid, msg.sender)
+            else:
+                self.sendTextMsg("群聊未添加，无需操作。", msg.roomid, msg.sender)
+        else:
+            self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
     def toAt(self, msg: WxMsg) -> bool:
         """处理被 @ 消息
@@ -222,10 +260,9 @@ class Robot(Job):
             self.sendTextMsg(f"Hi {nickName[0]}，我自动通过了你的好友请求。", msg.sender)
 
     def newsReport(self) -> None:
-        receivers = self.config.NEWS
+        receivers = self.config.GROUPS
         if not receivers:
             return
-
         news = News().get_important_news()
         for r in receivers:
-            self.sendTextMsg(news, r)
+            self.sendTextMsg(news, r, "notify@all")

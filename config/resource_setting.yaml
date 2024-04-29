@@ -1,17 +1,11 @@
 groups:
-  enable: []  # 允许响应的群 roomId，大概长这样：2xxxxxxxxx3@chatroom
+  enable:
+  # 允许响应的群 roomId，大概长这样：2xxxxxxxxx3@chatroom，新增就加一行
+  - xxx@chatroom
+  - 20782264501@chatroom
 
-
-
-
-
-
-
-
-
-
-
-
+administrators:
+  wxid: wxid_clooze21y79721
 
 
 

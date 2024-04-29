@@ -1,6 +1,9 @@
 import requests
-from bs4 import BeautifulSoup
 
+from bs4 import BeautifulSoup
+from utils.log import logger_manager
+
+logger = logger_manager.logger
 
 user_agent = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
               'Chrome/65.0.3325.146 Safari/537.36')
@@ -36,6 +39,7 @@ def get_yulu(type):
         resp = requests.get(url, headers=headers)
         return parse_html(resp.text)
     except Exception as e:
+        logger.error(str(e))
         return error_msg
 
 

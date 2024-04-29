@@ -1,5 +1,9 @@
 import random
 
+from utils.log import logger_manager
+
+logger = logger_manager.logger
+
 a = ['那...那里...那里不能戳...绝对...', '嘤嘤嘤,好疼', '你再戳，我就把你的作案工具没收了，哼哼~',
      '别戳了别戳了，戳怀孕了',
      '嘤嘤嘤，人家痛痛', '我错了我错了，别戳了', '桥豆麻袋,别戳老子', '手感怎么样', '戳够了吗？该学习了',
@@ -18,5 +22,6 @@ def pokeme_reply():
         pre = k
         return a[k]
     except Exception as e:
+        logger.error(str(e))
         return "戳一戳插件出现故障，请联系开发者"
 
