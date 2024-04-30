@@ -265,4 +265,5 @@ class Robot(Job):
             return
         news = News().get_important_news()
         for r in receivers:
-            self.sendTextMsg(news, r, "notify@all")
+            # self.sendTextMsg(news, r, "notify@all")
+            self.sendTextMsg(news, r)
