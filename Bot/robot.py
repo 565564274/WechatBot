@@ -17,6 +17,8 @@ from Bot.plugins.shadiao import shadiao
 from Bot.plugins.zhanan_lvcha import zhanan_lvcha
 from Bot.plugins.duanzi import duanzi
 from Bot.plugins.news import News
+from Bot.plugins import lsp
+from Bot.plugins import morning_night
 
 
 def new_str(self) -> str:
@@ -59,10 +61,10 @@ class Robot(Job):
                 return self.admin(msg)
             if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
                 return
-
-            # 如果在群里被 @
+            # 如果在群里被非administrators(创建者) @
             if msg.is_at(self.wxid):  # 被@
-                self.toAt(msg)
+                # self.toAt(msg)
+                self.sendTextMsg("非创建者@我无效", msg.roomid, msg.sender)
 
             else:  # 其他消息
                 if msg.type == 10000:  # 系统信息
@@ -85,6 +87,17 @@ class Robot(Job):
                     elif msg.content in ["段子"]:
                         # 5.段子
                         return self.sendTextMsg(duanzi(), msg.roomid, msg.sender)
+                    elif msg.content in lsp.mark:
+                        status, resp, msg_type = lsp.lsp(msg.content)
+                        if status:
+                            if msg_type == "image":
+                                return self.sendImageMsg(resp, msg.roomid)
+                            else:
+                                return self.sendFileMsg(resp, msg.roomid)
+                        else:
+                            return self.sendTextMsg(resp, msg.roomid)
+
+
                 else:
                     return
                 self.toChengyu(msg)
@@ -225,6 +238,26 @@ class Robot(Job):
             self.LOG.info(f"To {receiver}: {ats}\r{msg}")
             self.wcf.send_text(f"{ats}\n\n{msg}", receiver, at_list)
 
+    def sendImageMsg(self, image_path: str, receiver: str) -> None:
+        """ 发送消息
+        :param image_path:
+        :param receiver: 接收人wxid或者群id
+        """
+        self.LOG.info(f"To {receiver}: {image_path}")
+        status = self.wcf.send_image(image_path, receiver)
+        if status != 0:
+            self.sendTextMsg("发送图片失败", receiver)
+
+    def sendFileMsg(self, file_path: str, receiver: str) -> None:
+        """ 发送消息
+        :param file_path:
+        :param receiver: 接收人wxid或者群id
+        """
+        self.LOG.info(f"To {receiver}: {file_path}")
+        status = self.wcf.send_file(file_path, receiver)
+        if status != 0:
+            self.sendTextMsg("发送文件失败", receiver)
+
     def getAllContacts(self) -> dict:
         """
         获取联系人（包括好友、公众号、服务号、群成员……）
@@ -259,11 +292,22 @@ class Robot(Job):
             self.allContacts[msg.sender] = nickName[0]
             self.sendTextMsg(f"Hi {nickName[0]}，我自动通过了你的好友请求。", msg.sender)
 
-    def newsReport(self) -> None:
+    def tasks(self, task_type) -> None:
         receivers = self.config.GROUPS
         if not receivers:
             return
-        news = News().get_important_news()
+        if task_type == "news":
+            resp = News().get_important_news()
+        elif task_type == "morning":
+            resp = morning_night.zao_an()
+        elif task_type == "night":
+            resp = morning_night.wan_an()
+        else:
+            return
         for r in receivers:
             # self.sendTextMsg(news, r, "notify@all")
-            self.sendTextMsg(news, r)
+            self.sendTextMsg(resp, r)
+
+
+
+
