@@ -44,6 +44,7 @@ class Robot(Job):
         self.LOG = logger_manager.logger
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
+        self.all_conversation = {}
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -56,52 +57,6 @@ class Robot(Job):
 
         # 群聊消息
         if msg.from_group():
-            # 如果在群里被administrators(创建者) @
-            if msg.is_at(self.wxid) and msg.sender == self.config.ADMIN:
-                return self.admin(msg)
-            if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
-                return
-            # 如果在群里被非administrators(创建者) @
-            if msg.is_at(self.wxid):  # 被@
-                # self.toAt(msg)
-                self.sendTextMsg("非创建者@我无效", msg.roomid, msg.sender)
-
-            else:  # 其他消息
-                if msg.type == 10000:  # 系统信息
-                    if "拍了拍我" in msg.content:
-                        # 1.回复拍一拍
-                        return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
-                    else:
-                        self.LOG.info("msg.type == 10000 的其他消息")
-                        return
-                elif msg.is_text():  # 文本消息
-                    if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
-                        # 2.情感语录
-                        return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["疯狂星期四", "彩虹屁", "朋友圈", "朋友圈文案"]:
-                        # 3.傻屌语录
-                        return self.sendTextMsg(shadiao(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["渣男", "绿茶"]:
-                        # 4.渣男&绿茶语录
-                        return self.sendTextMsg(zhanan_lvcha(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["段子"]:
-                        # 5.段子
-                        return self.sendTextMsg(duanzi(), msg.roomid, msg.sender)
-                    elif msg.content in lsp.mark:
-                        status, resp, msg_type = lsp.lsp(msg.content)
-                        if status:
-                            if msg_type == "image":
-                                return self.sendImageMsg(resp, msg.roomid)
-                            else:
-                                return self.sendFileMsg(resp, msg.roomid)
-                        else:
-                            return self.sendTextMsg(resp, msg.roomid)
-
-
-                else:
-                    return
-                self.toChengyu(msg)
-
             return  # 处理完群聊信息，后面就不需要处理了
 
         # 非群聊信息，按消息类型进行处理
@@ -114,11 +69,11 @@ class Robot(Job):
         elif msg.type == 0x01:  # 文本消息
             # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
             if msg.from_self():
-                if msg.content == "^更新$":
-                    self.config.reload()
-                    self.LOG.info("已更新")
+                return
             else:
-                self.toChitchat(msg)  # 闲聊
+                if msg.sender not in self.all_conversation:
+                    self.all_conversation[msg.sender] = []
+
 
     def admin(self, msg: WxMsg) -> None:
         """

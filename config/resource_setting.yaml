@@ -8,7 +8,12 @@ administrators:
   wxid: wxid_clooze21y79721
 
 
-
+chatgpt:
+  model_name: "gpt-3.5-turbo"
+  api_key: "sk-zpAHa2F4LeepcXwOzR8PASFWFbPxSRN6Cy4r31NuiNjLwpsq"
+  api_key_option: [
+    "sk-zpAHa2F4LeepcXwOzR8PASFWFbPxSRN6Cy4r31NuiNjLwpsq",
+  ]
 
 
 
