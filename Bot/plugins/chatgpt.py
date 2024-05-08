@@ -118,7 +118,7 @@ class ChatgptApi:
         except Exception as e:
             logger.error(e)
             return False, "未知问题，生成失败\n请重新输入"
-        return True, transcription
+        return True, transcription.text
 
     def tts(self, text, wx_id, first=True):
         try:
@@ -154,11 +154,14 @@ class ChatgptApi:
 
 if __name__ == '__main__':
     a = ChatgptApi()
-    res = a.chat(
-        [["user", "你好"], ["assistant", "Hey there! How can I help you today?"],["user", "I would like to apply for admission"]],
-        role="你现在是一个口语训练老师，现在场景是办理入学，后续在这个场景下请和我用英语对话"
-    )
-    # res = a.image(
-    #     "比萨斜塔"
+    # res = a.chat(
+    #     [["user", "你好"], ["assistant", "Hey there! How can I help you today?"],["user", "I would like to apply for admission"]],
+    #     role="你现在是一个口语训练老师，现在场景是办理入学，后续在这个场景下请和我用英语对话"
     # )
+    # res = a.tts(
+    #     "比萨斜塔","111"
+    # )
+    res = a.whisper(
+        Path(r'C:\Users\songtao.gong\Desktop\My\WechatBot\temp\111\2024-05-08_17-23-23.mp3')
+    )
     print(res)

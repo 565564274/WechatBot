@@ -104,7 +104,7 @@ class Robot(Job):
                 if msg.content[1:] in [str(key) for key in self.config.VOICE.keys()]:
                     self.sendTextMsg(f'已选择【{self.config.VOICE[int(msg.content[1:])]["name"]}】场景，请开始发送语音', msg.sender)
                     self.all_user[msg.sender]["voice"] = True
-                    self.all_user[msg.sender]["voice_scene"] = self.config.VOICE[int(msg.content[1:])]["description"],
+                    self.all_user[msg.sender]["voice_scene"] = self.config.VOICE[int(msg.content[1:])]["description"]
                     return
                 else:
                     self.sendTextMsg("无效场景，请重新输入", msg.sender)
@@ -127,16 +127,17 @@ class Robot(Job):
         with self.all_user[msg.sender]["lock"]:
             self.LOG.info("*" * 32 * 6 + "\n")
             self.LOG.info(f"处理{msg.sender}语音")
-            wx_id_receive_folder = DEFAULT_TEMP_PATH / msg.sender / "receive"
+            wx_id_receive_folder = DEFAULT_TEMP_PATH / msg.sender
             if not Path(wx_id_receive_folder).is_dir():
                 Path(wx_id_receive_folder).mkdir(exist_ok=True)
-            receive_path = self.wcf.get_audio_msg(msg.id, wx_id_receive_folder, timeout=30)
+            receive_path = self.wcf.get_audio_msg(msg.id, str(wx_id_receive_folder), timeout=30)
             if not receive_path:
                 return self.sendTextMsg("请重新发送语音，识别异常", msg.sender)
-            status, transcription = self.chatgpt.whisper(receive_path)
+            status, transcription = self.chatgpt.whisper(Path(receive_path))
             if not status:
                 return self.sendTextMsg("请重新发送语音，识别异常", msg.sender)
             self.all_user[msg.sender]["conversation"].append(["user", transcription])
+            self.LOG.info(self.all_user[msg.sender]["conversation"])
             status, resp = self.chatgpt.chat(
                 self.all_user[msg.sender]["conversation"],
                 role=self.all_user[msg.sender]["voice_scene"]
@@ -146,15 +147,12 @@ class Robot(Job):
             status, output_path = self.chatgpt.tts(resp, msg.sender)
             if not status:
                 return self.sendTextMsg("请重新发送语音，回复异常", msg.sender)
-            status = self.sendFileMsg(output_path, msg.sender)
+            status = self.sendFileMsg(str(output_path), msg.sender)
             if not status:
                 return self.sendTextMsg("请重新发送语音，发送异常", msg.sender)
-            self.all_user[msg.sender]["conversation"].append(["assistant", transcription])
-
-
-
-
-
+            self.all_user[msg.sender]["conversation"].append(["assistant", resp])
+            self.LOG.info("*" * 32 * 6 + "\n")
+            self.LOG.info(resp)
 
     def admin(self, msg: WxMsg) -> None:
         """
