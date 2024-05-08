@@ -19,6 +19,7 @@ class ResourcePool:
         self.resource_file_base_path = DEFAULT_CONFIG_PATH
         self.GROUPS = None
         self.ADMIN = None
+        self.VOICE = None
         self.resource = self.load()
 
     def load(self):
@@ -32,6 +33,7 @@ class ResourcePool:
             yconfig = self.load_resource_from_yaml(resource_file_path)
             self.GROUPS = yconfig["groups"]["enable"]
             self.ADMIN = yconfig["administrators"]["wxid"]
+            self.VOICE = yconfig["voice_scene"]
             return yconfig
         else:
             logger.info(

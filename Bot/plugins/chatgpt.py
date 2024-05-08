@@ -7,18 +7,19 @@ from datetime import datetime
 from utils import resource_pool
 from utils.log import logger_manager
 from utils.root_path import DEFAULT_TEMP_PATH
+from utils.singleton import singleton
 
 
 logger = logger_manager.logger
 
 
+@singleton
 class ChatgptApi:
 
-    def __init__(self, key=None):
-        api_key = "sk-zpAHa2F4LeepcXwOzR8PASFWFbPxSRN6Cy4r31NuiNjLwpsq"
-        api_base = "https://api.chatanywhere.tech/v1"
+    def __init__(self, key=None, base_url=None):
         self.client = OpenAI(
             api_key=key if key else resource_pool["chatgpt"]["api_key"],
+            base_url=base_url if base_url else resource_pool["chatgpt"]["base_url"],
             max_retries=1,
             timeout=30
         )
@@ -56,7 +57,7 @@ class ChatgptApi:
     def chat(self, messages, first=True, role=None):
         result = []
         if role:
-            result[0] = {"role": "system", "content": role}
+            result.append({"role": "system", "content": role})
         for message in messages:
             result.append(
                 {
@@ -73,26 +74,26 @@ class ChatgptApi:
         except Exception as e:
             logger.error(e)
             if "This model's maximum context length" in str(e):
-                return {"role": "assistant", "content": "已达到该Model最大对话长度，请重新回复【开始聊天】，重新开始与chatgpt对话"}
+                return False, "已达到该Model最大对话长度，重新开始与chatgpt对话"
             elif "check your plan and billing details" in str(e):
                 # Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
                 self.update_key_self()
                 if first:
                     return self.chat(messages, first=False)
-                return {"role": "assistant", "content": "这个ChatGPT账号没钱不能玩了，快去提醒他充值"}
+                return False, "这个ChatGPT账号没钱不能玩了，快去提醒他充值"
             elif "Incorrect API key provided" in str(e):
                 self.update_key_self()
                 if first:
                     return self.chat(messages, first=False)
-                return {"role": "assistant", "content": "这个ChatGPT账号的API key不对，快去提醒他看看"}
+                return False, "这个ChatGPT账号的API key不对，快去提醒他看看"
             elif "Rate limit reached" in str(e):
                 # Rate limit reached for default-gpt-3.5-turbo-16k in organization org-vwVh2d6OFgt2xjsjnSEQJp8Z on requests per min. Limit: 3 / min.
                 # Please try again in 20s. Contact us through our help center at help.openai.com if you continue to have issues.
                 # Please add a payment method to your account to increase your rate limit. Visit https://platform.openai.com/account/billing to add a payment method.
-                return {"role": "assistant", "content": "请求频率太高了，稍后再试"}
+                return False, "请求频率太高了，稍后再试"
             else:
-                return {"role": "assistant", "content": "未知错误，请重新回复【开始聊天】，重新开始与chatgpt对话"}
-        return {"role": "assistant", "content": response.choices[0].message.content}
+                return False, "未知错误，请重新开始与chatgpt对话"
+        return True, response.choices[0].message.content
 
     def whisper(self, audio_file, first=True):
         try:
@@ -153,10 +154,11 @@ class ChatgptApi:
 
 if __name__ == '__main__':
     a = ChatgptApi()
-    # res = a.chat(
-    #     [["user", "你好"], ["user", "你好"]]
-    # )
-    res = a.image(
-        "比萨斜塔"
+    res = a.chat(
+        [["user", "你好"], ["assistant", "Hey there! How can I help you today?"],["user", "I would like to apply for admission"]],
+        role="你现在是一个口语训练老师，现在场景是办理入学，后续在这个场景下请和我用英语对话"
     )
+    # res = a.image(
+    #     "比萨斜塔"
+    # )
     print(res)

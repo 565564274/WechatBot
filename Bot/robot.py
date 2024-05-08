@@ -1,11 +1,13 @@
 import re
 import time
 import xml.etree.ElementTree as ET
+import threading
 
 from wcferry import Wcf, WxMsg
 from queue import Empty
 from threading import Thread
 from datetime import datetime
+from pathlib import Path
 
 from utils.log import logger_manager
 from utils.singleton import singleton
@@ -19,14 +21,16 @@ from Bot.plugins.duanzi import duanzi
 from Bot.plugins.news import News
 from Bot.plugins import lsp
 from Bot.plugins import morning_night
+from Bot.plugins.chatgpt import ChatgptApi
+from utils.root_path import DEFAULT_TEMP_PATH
 
 
 def new_str(self) -> str:
     s = "=" * 32 * 6 + "\n"
     s += f"{'自己发的:' if self._is_self else ''}"
     s += f"{self.sender}[{self.roomid}]|{self.id}|{datetime.fromtimestamp(self.ts)}|{self.type}|{self.sign}"
-    s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}\n"
-    s += self.content
+    s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}"
+    s += f"\ncontent: {self.content}"
     s += f"\nthumb: {self.thumb}" if self.thumb else ""
     s += f"\nextra: {self.extra}" if self.extra else ""
     return s
@@ -44,7 +48,8 @@ class Robot(Job):
         self.LOG = logger_manager.logger
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
-        self.all_conversation = {}
+        self.chatgpt = ChatgptApi()
+        self.all_user = {}
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -59,6 +64,16 @@ class Robot(Job):
         if msg.from_group():
             return  # 处理完群聊信息，后面就不需要处理了
 
+        # 初始化
+        if msg.sender not in self.all_user:
+            self.all_user[msg.sender] = {
+                "conversation": [],
+                "voice": False,
+                "voice_scene": None,
+                "certification": False,
+                "lock": threading.Lock(),
+            }
+
         # 非群聊信息，按消息类型进行处理
         if msg.type == 37:  # 好友请求
             self.autoAcceptFriendRequest(msg)
@@ -66,13 +81,79 @@ class Robot(Job):
         elif msg.type == 10000:  # 系统信息
             self.sayHiToNewFriend(msg)
 
-        elif msg.type == 0x01:  # 文本消息
+        elif msg.type == 1:  # 文本消息
             # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
             if msg.from_self():
                 return
+            if msg.content == "结束对话":
+                self.all_user[msg.sender]["conversation"] = []
+                self.all_user[msg.sender]["voice"] = False
+                self.all_user[msg.sender]["voice_scene"] = None,
+                self.sendTextMsg("对话已结束", msg.sender)
+                return
+            if self.all_user[msg.sender]["voice"]:
+                self.sendTextMsg("处于对话场景中，无法文字对话，请输入【结束对话】退出场景。", msg.sender)
+                return
+            if msg.content == "查看场景":
+                resp = "场景如下：\n"
+                for i, info in self.config.VOICE.items():
+                    resp += f"【{i}】 {info['name']}\n"
+                self.sendTextMsg(resp + "请输入#+场景编号进入场景对话，如#1", msg.sender)
+                return
+            elif msg.content.startswith("#"):
+                if msg.content[1:] in [str(key) for key in self.config.VOICE.keys()]:
+                    self.sendTextMsg(f'已选择【{self.config.VOICE[int(msg.content[1:])]["name"]}】场景，请开始发送语音', msg.sender)
+                    self.all_user[msg.sender]["voice"] = True
+                    self.all_user[msg.sender]["voice_scene"] = self.config.VOICE[int(msg.content[1:])]["description"],
+                    return
+                else:
+                    self.sendTextMsg("无效场景，请重新输入", msg.sender)
+                    return
             else:
-                if msg.sender not in self.all_conversation:
-                    self.all_conversation[msg.sender] = []
+                resp = ("输入【查看场景】并根据教程选择场景对话\n"
+                        "输入【结束对话】结束当前场景对话")
+                self.sendTextMsg(resp, msg.sender)
+                return
+        elif msg.type == 34:  # 语音消息
+            if msg.from_self():
+                return
+            if not self.all_user[msg.sender]["voice"]:
+                self.sendTextMsg("还未选择对话场景，无法语音对话，请输入【帮助】查看使用教程。", msg.sender)
+                return
+            t = threading.Thread(target=self.reply, args=(msg,))
+            t.start()
+
+    def reply(self, msg: WxMsg):
+        with self.all_user[msg.sender]["lock"]:
+            self.LOG.info("*" * 32 * 6 + "\n")
+            self.LOG.info(f"处理{msg.sender}语音")
+            wx_id_receive_folder = DEFAULT_TEMP_PATH / msg.sender / "receive"
+            if not Path(wx_id_receive_folder).is_dir():
+                Path(wx_id_receive_folder).mkdir(exist_ok=True)
+            receive_path = self.wcf.get_audio_msg(msg.id, wx_id_receive_folder, timeout=30)
+            if not receive_path:
+                return self.sendTextMsg("请重新发送语音，识别异常", msg.sender)
+            status, transcription = self.chatgpt.whisper(receive_path)
+            if not status:
+                return self.sendTextMsg("请重新发送语音，识别异常", msg.sender)
+            self.all_user[msg.sender]["conversation"].append(["user", transcription])
+            status, resp = self.chatgpt.chat(
+                self.all_user[msg.sender]["conversation"],
+                role=self.all_user[msg.sender]["voice_scene"]
+            )
+            if not status:
+                return self.sendTextMsg("请重新发送语音，回复异常", msg.sender)
+            status, output_path = self.chatgpt.tts(resp, msg.sender)
+            if not status:
+                return self.sendTextMsg("请重新发送语音，回复异常", msg.sender)
+            status = self.sendFileMsg(output_path, msg.sender)
+            if not status:
+                return self.sendTextMsg("请重新发送语音，发送异常", msg.sender)
+            self.all_user[msg.sender]["conversation"].append(["assistant", transcription])
+
+
+
+
 
 
     def admin(self, msg: WxMsg) -> None:
@@ -203,7 +284,7 @@ class Robot(Job):
         if status != 0:
             self.sendTextMsg("发送图片失败", receiver)
 
-    def sendFileMsg(self, file_path: str, receiver: str) -> None:
+    def sendFileMsg(self, file_path: str, receiver: str) -> bool:
         """ 发送消息
         :param file_path:
         :param receiver: 接收人wxid或者群id
@@ -211,7 +292,9 @@ class Robot(Job):
         self.LOG.info(f"To {receiver}: {file_path}")
         status = self.wcf.send_file(file_path, receiver)
         if status != 0:
-            self.sendTextMsg("发送文件失败", receiver)
+            return False
+        else:
+            return True
 
     def getAllContacts(self) -> dict:
         """
