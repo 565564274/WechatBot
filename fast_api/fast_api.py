@@ -70,10 +70,34 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.include_router(static_app.router, prefix="", tags=[])
 
 
+@app.get("/get_msg_types")
+async def get_msg_types():
+    types = wcf.get_msg_types()
+    return types
+
+
+@app.get("/get_contacts")
+async def get_contacts():
+    contacts = wcf.get_contacts()
+    return contacts
+
+
+@app.get("/get_user_info")
+async def get_user_info():
+    user_info = wcf.get_user_info()
+    return user_info
+
+
 @app.get("/get_friends")
 async def get_friends():
     friends = wcf.get_friends()
     return friends
+
+
+@app.get("/get_info_by_wxid")
+async def get_info_by_wxid(wxid: str):
+    info = wcf.get_info_by_wxid(wxid)
+    return info
 
 
 @app.get("/get_chatroom_members")
@@ -82,10 +106,10 @@ async def get_chatroom_members(roomid: str):
     return members
 
 
-@app.get("/revoke_msg")
-async def revoke_msg(id: int):
-    status = wcf.revoke_msg(id)
-    return status
+@app.get("/get_alias_in_chatroom")
+async def get_alias_in_chatroom(wxid: str, roomid: str):
+    alias = wcf.get_alias_in_chatroom(wxid, roomid)
+    return alias
 
 
 @app.post("/send_text")
@@ -94,9 +118,75 @@ async def send_text(msg: str, receiver: str, aters: Optional[str] = ""):
     return status
 
 
+@app.post("/send_image")
+async def send_image(path: str, receiver: str):
+    status = wcf.send_image(path, receiver)
+    return status
+
+
+@app.post("/send_file")
+async def send_file(path: str, receiver: str):
+    status = wcf.send_file(path, receiver)
+    return status
+
+
+@app.post("/send_xml")
+async def send_xml(receiver: str, xml: str, type: int, path: str = None):
+    status = wcf.send_xml(receiver, xml, type, path)
+    return status
+
+
+@app.post("/send_emotion")
+async def send_emotion(path: str, receiver: str):
+    status = wcf.send_emotion(path, receiver)
+    return status
+
+
 @app.post("/send_rich_text")
 async def send_rich_text(name: str, account: str, title: str, digest: str, url: str, thumburl: str, receiver: str):
     status = wcf.send_rich_text(name, account, title, digest, url, thumburl, receiver)
+    return status
+
+
+@app.post("/send_pat_msg")
+async def send_pat_msg(roomid: str, wxid: str):
+    status = wcf.send_pat_msg(roomid, wxid)
+    return status
+
+
+@app.post("/forward_msg")
+async def forward_msg(id: int, receiver: str):
+    status = wcf.forward_msg(id, receiver)
+    return status
+
+
+@app.post("/receive_transfer")
+async def receive_transfer(wxid: str, transferid: str, transactionid: str):
+    status = wcf.receive_transfer(wxid, transferid, transactionid)
+    return status
+
+
+@app.post("/revoke_msg")
+async def revoke_msg(id: int):
+    status = wcf.revoke_msg(id)
+    return status
+
+
+@app.post("/add_chatroom_members")
+async def add_chatroom_members(roomid: str, wxids: str):
+    status = wcf.add_chatroom_members(roomid, wxids)
+    return status
+
+
+@app.post("/del_chatroom_members")
+async def del_chatroom_members(roomid: str, wxids: str):
+    status = wcf.del_chatroom_members(roomid, wxids)
+    return status
+
+
+@app.post("/invite_chatroom_members")
+async def invite_chatroom_members(roomid: str, wxids: str):
+    status = wcf.invite_chatroom_members(roomid, wxids)
     return status
 
 
