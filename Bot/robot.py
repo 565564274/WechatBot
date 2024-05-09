@@ -151,8 +151,8 @@ class Robot(Job):
             if not status:
                 return self.sendTextMsg("请重新发送语音，发送异常", msg.sender)
             self.all_user[msg.sender]["conversation"].append(["assistant", resp])
-            self.LOG.info("*" * 32 * 6 + "\n")
             self.LOG.info(resp)
+            self.LOG.info("*" * 32 * 6 + "\n")
 
     def admin(self, msg: WxMsg) -> None:
         """
