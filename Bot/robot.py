@@ -94,9 +94,6 @@ class Robot(Job):
             if msg.content.startswith("@") and msg.sender in self.config.ADMIN:
                 return self.admin(msg)
 
-            if not self.check_cert(msg.sender):
-                self.sendTextMsg("无免费额度/激活已过期，请咨询客服", msg.sender)
-                return
             if msg.content == "结束对话":
                 self.all_user[msg.sender]["conversation"] = []
                 self.all_user[msg.sender]["voice"] = False

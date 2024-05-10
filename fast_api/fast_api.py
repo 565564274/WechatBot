@@ -49,6 +49,7 @@ async def lifespan(app: FastAPI):
     schedule_thread.start()
     logger.info("startup done")
     yield
+    robot.task_sync_user()
     wcf.cleanup()
     logger.info("shutdown done")
 
