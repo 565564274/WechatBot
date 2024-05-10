@@ -232,7 +232,9 @@ class Robot(Job):
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                end_time = datetime.now() - timedelta(days=int(order[2]))
+                old = self.all_user[msg.sender]["certification"]
+                end_time = datetime.strptime(old if old else datetime.now(), "%Y-%m-%d %H:%M:%S")
+                end_time = end_time - timedelta(days=int(order[2]))
                 end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
                 self.all_user[msg.sender]["certification"] = end_time_str
                 self.config.resource["user"] = self.all_user
