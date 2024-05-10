@@ -51,9 +51,7 @@ class Robot(Job):
         self.allContacts = self.getAllContacts()
         self.chatgpt = ChatgptApi()
         self.all_user = self.config.USER if self.config.USER else {}
-        self.all_user_lock = {}
-        for key in self.all_user.keys():
-            self.all_user_lock[key] = threading.Lock()
+        self.all_user_lock = threading.Lock()
         self.VOICE, error = self.config.read_excel()
 
     def processMsg(self, msg: WxMsg) -> None:
@@ -78,7 +76,6 @@ class Robot(Job):
                 "certification": False,
                 "free": 10
             }
-            self.all_user_lock[msg.sender] = threading.Lock()
 
         # 非群聊信息，按消息类型进行处理
         if msg.type == 37:  # 好友请求
@@ -167,7 +164,7 @@ class Robot(Job):
         return False
 
     def reply(self, msg: WxMsg):
-        with self.all_user_lock[msg.sender]:
+        with self.all_user_lock:
             self.LOG.info("*" * 32 * 6 + "\n")
             self.LOG.info(f"处理{msg.sender}语音")
             wx_id_receive_folder = DEFAULT_TEMP_PATH / msg.sender
