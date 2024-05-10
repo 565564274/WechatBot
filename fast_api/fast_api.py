@@ -39,6 +39,10 @@ async def lifespan(app: FastAPI):
     # 接收消息
     robot.enableReceivingMsg()  # 加队列
 
+    robot.onEveryTime("08:00", robot.task_send_info)
+    robot.onEveryTime("20:00", robot.task_send_info)
+    robot.onEveryMinutes(30, robot.task_sync_user)
+
     # 让机器人一直跑
     schedule_thread = threading.Thread(target=robot.keepRunningAndBlockProcess)
     schedule_thread.daemon = True

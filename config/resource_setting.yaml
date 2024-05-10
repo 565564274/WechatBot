@@ -5,7 +5,8 @@ groups:
   - 20782264501@chatroom
 
 administrators:
-  wxid: wxid_clooze21y79721
+  wxid:
+  - wxid_clooze21y79721
 
 
 chatgpt:
@@ -16,9 +17,6 @@ chatgpt:
     "sk-zpAHa2F4LeepcXwOzR8PASFWFbPxSRN6Cy4r31NuiNjLwpsq",
   ]
 
-voice_scene:
-  1:
-    name: "办理入学"
-    description: "你现在是一个口语训练老师，现在场景是办理入学，后续在这个场景下请和我用英语对话"
+user:
 
 

@@ -130,7 +130,7 @@ class ChatgptApi:
             wx_id_folder = DEFAULT_TEMP_PATH / wx_id
             if not Path(wx_id_folder).is_dir():
                 Path(wx_id_folder).mkdir(exist_ok=True)
-            output_path = wx_id_folder / f"{datetime.strftime(datetime.now(), '%Y-%m-%d_%H-%M-%S')}.mp3"
+            output_path = wx_id_folder / f"点我听语音.mp3"
             response.stream_to_file(output_path)
         except openai.APIError as e:
             logger.error(e)

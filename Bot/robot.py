@@ -6,7 +6,7 @@ import threading
 from wcferry import Wcf, WxMsg
 from queue import Empty
 from threading import Thread
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from utils.log import logger_manager
@@ -21,6 +21,7 @@ from Bot.plugins.duanzi import duanzi
 from Bot.plugins.news import News
 from Bot.plugins import lsp
 from Bot.plugins import morning_night
+from Bot.plugins import info
 from Bot.plugins.chatgpt import ChatgptApi
 from utils.root_path import DEFAULT_TEMP_PATH
 
@@ -49,7 +50,11 @@ class Robot(Job):
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
         self.chatgpt = ChatgptApi()
-        self.all_user = {}
+        self.all_user = self.config.USER
+        self.all_user_lock = {}
+        for key in self.all_user.keys():
+            self.all_user_lock[key] = threading.Lock()
+        self.VOICE, error = self.config.read_excel()
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -71,8 +76,9 @@ class Robot(Job):
                 "voice": False,
                 "voice_scene": None,
                 "certification": False,
-                "lock": threading.Lock(),
+                "free": 10
             }
+            self.all_user_lock[msg.sender] = threading.Lock()
 
         # 非群聊信息，按消息类型进行处理
         if msg.type == 37:  # 好友请求
@@ -85,10 +91,16 @@ class Robot(Job):
             # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
             if msg.from_self():
                 return
+            if msg.content.startswith("@") and msg.sender in self.config.ADMIN:
+                return self.admin(msg)
+
+            if not self.check_cert(msg.sender):
+                self.sendTextMsg("无免费额度/激活已过期，请咨询客服", msg.sender)
+                return
             if msg.content == "结束对话":
                 self.all_user[msg.sender]["conversation"] = []
                 self.all_user[msg.sender]["voice"] = False
-                self.all_user[msg.sender]["voice_scene"] = None,
+                self.all_user[msg.sender]["voice_scene"] = None
                 self.sendTextMsg("对话已结束", msg.sender)
                 return
             if self.all_user[msg.sender]["voice"]:
@@ -96,22 +108,40 @@ class Robot(Job):
                 return
             if msg.content == "查看场景":
                 resp = "场景如下：\n"
-                for i, info in self.config.VOICE.items():
+                for i, info in self.VOICE.items():
                     resp += f"【{i}】 {info['name']}\n"
-                self.sendTextMsg(resp + "请输入#+场景编号进入场景对话，如#1", msg.sender)
+                    if i >= 5:
+                        break
+                resp += "......\n更多场景请咨询客服获取\n"
+                self.sendTextMsg(resp + "请输入#+场景编号进入场景对话\n如#1", msg.sender)
                 return
             elif msg.content.startswith("#"):
-                if msg.content[1:] in [str(key) for key in self.config.VOICE.keys()]:
-                    self.sendTextMsg(f'已选择【{self.config.VOICE[int(msg.content[1:])]["name"]}】场景，请开始发送语音', msg.sender)
+                if msg.content[1:] in [str(key) for key in self.VOICE.keys()]:
+                    self.sendTextMsg(f'已选择【{self.VOICE[int(msg.content[1:])]["name"]}】场景，请开始发送语音', msg.sender)
                     self.all_user[msg.sender]["voice"] = True
-                    self.all_user[msg.sender]["voice_scene"] = self.config.VOICE[int(msg.content[1:])]["description"]
+                    self.all_user[msg.sender]["voice_scene"] = self.VOICE[int(msg.content[1:])]["description"]
                     return
                 else:
                     self.sendTextMsg("无效场景，请重新输入", msg.sender)
                     return
+            elif msg.content == "查看激活":
+                if self.all_user[msg.sender]["certification"]:
+                    self.sendTextMsg(f'激活到期时间：{self.all_user[msg.sender]["certification"]}', msg.sender)
+                else:
+                    if self.all_user[msg.sender]["free"] > 0:
+                        self.sendTextMsg(f'还未激活，免费额度剩余：{self.all_user[msg.sender]["free"]}', msg.sender)
+                    else:
+                        self.sendTextMsg(f'还未激活，免费额度已用完', msg.sender)
+                return
+            elif msg.content == "获取账户":
+                self.sendTextMsg(msg.sender, msg.sender)
+                return
             else:
                 resp = ("输入【查看场景】并根据教程选择场景对话\n"
-                        "输入【结束对话】结束当前场景对话")
+                        "输入【结束对话】结束当前场景对话\n"
+                        "输入【获取账户】获取账户名咨询客服激活\n"
+                        "输入【查看激活】查看激活到期时间\n"
+                        "初始拥有10条免费语音对话次数")
                 self.sendTextMsg(resp, msg.sender)
                 return
         elif msg.type == 34:  # 语音消息
@@ -120,11 +150,27 @@ class Robot(Job):
             if not self.all_user[msg.sender]["voice"]:
                 self.sendTextMsg("还未选择对话场景，无法语音对话，请输入【帮助】查看使用教程。", msg.sender)
                 return
+            if not self.check_cert(msg.sender):
+                self.sendTextMsg("无免费额度/激活已过期，请咨询客服", msg.sender)
+                return
             t = threading.Thread(target=self.reply, args=(msg,))
             t.start()
 
+    def check_cert(self, wx_id):
+        if self.all_user[wx_id]["free"] > 0:
+            self.all_user[wx_id]["free"] -= 1
+            return True
+        if self.all_user[wx_id]["certification"]:
+            certification = datetime.strptime(self.all_user[wx_id]["certification"], "%Y-%m-%d %H:%M:%S")
+            if certification > datetime.now():
+                return True
+        self.all_user[wx_id]["conversation"] = []
+        self.all_user[wx_id]["voice"] = False
+        self.all_user[wx_id]["voice_scene"] = None
+        return False
+
     def reply(self, msg: WxMsg):
-        with self.all_user[msg.sender]["lock"]:
+        with self.all_user_lock[msg.sender]:
             self.LOG.info("*" * 32 * 6 + "\n")
             self.LOG.info(f"处理{msg.sender}语音")
             wx_id_receive_folder = DEFAULT_TEMP_PATH / msg.sender
@@ -147,6 +193,7 @@ class Robot(Job):
             status, output_path = self.chatgpt.tts(resp, msg.sender)
             if not status:
                 return self.sendTextMsg("请重新发送语音，回复异常", msg.sender)
+            self.sendTextMsg(f"{resp}\n————————————\n点击下方⬇️文件听语音", msg.sender)
             status = self.sendFileMsg(str(output_path), msg.sender)
             if not status:
                 return self.sendTextMsg("请重新发送语音，发送异常", msg.sender)
@@ -160,21 +207,51 @@ class Robot(Job):
         :param msg: 微信消息结构
         :return: 处理状态，`True` 成功，`False` 失败
         """
-        q = re.sub(r"@.*?[\u2005|\s]", "", msg.content).replace(" ", "")
-        if q == "新增群聊":
-            if msg.roomid not in self.config.GROUPS:
-                self.config.resource["groups"]["enable"].append(msg.roomid)
-                self.config.rewrite_reload()
-                self.sendTextMsg("群聊已添加，可以开始使用。", msg.roomid, msg.sender)
+        if msg.content.startswith("@帮助"):
+            self.sendTextMsg(
+                "指令如下：\n"
+                "以当前时间为起点增加X天↓\n"
+                "@增加激活 {账户名} {增加天数}\n"
+                "以到期时间为起点减少X天↓\n"
+                "@减少激活 {账户名} {减少天数}\n"
+                "查询到期时间↓\n"
+                "@查询激活 {账户名}\n"
+                "更新对话场景↓\n"
+                "@更新场景\n",
+                msg.sender)
+        elif msg.content.startswith("@增加激活"):
+            order = msg.content.split(" ")
+            if not order[1] in self.all_user:
+                self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                self.sendTextMsg("群聊已存在，无需操作。", msg.roomid, msg.sender)
-        elif q == "删除群聊":
-            if msg.roomid in self.config.GROUPS:
-                self.config.resource["groups"]["enable"].remove(msg.roomid)
+                end_time = datetime.now() + timedelta(days=int(order[2]))
+                end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
+                self.all_user[msg.sender]["certification"] = end_time_str
+                self.config.resource["user"] = self.all_user
                 self.config.rewrite_reload()
-                self.sendTextMsg("群聊已删除，机器人不再响应。", msg.roomid, msg.sender)
+                self.sendTextMsg(f'增加成功\n账户：{msg.sender}\n过期时间：{end_time_str}', msg.sender)
+        elif msg.content.startswith("@减少激活"):
+            order = msg.content.split(" ")
+            if not order[1] in self.all_user:
+                self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                self.sendTextMsg("群聊未添加，无需操作。", msg.roomid, msg.sender)
+                end_time = datetime.now() - timedelta(days=int(order[2]))
+                end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
+                self.all_user[msg.sender]["certification"] = end_time_str
+                self.config.resource["user"] = self.all_user
+                self.config.rewrite_reload()
+                self.sendTextMsg(f'减少成功\n账户：{msg.sender}\n过期时间：{end_time_str}', msg.sender)
+        elif msg.content.startswith("@查询激活"):
+            order = msg.content.split(" ")
+            if not order[1] in self.all_user:
+                self.sendTextMsg("未查询到此账户", msg.sender)
+            else:
+                self.sendTextMsg(f'账户：{msg.sender}\n过期时间：{self.all_user[msg.sender]["certification"]}', msg.sender)
+        elif msg.content.startswith("@更新场景"):
+            self.VOICE, error = self.config.read_excel()
+            self.sendTextMsg(f'更新成功：{len(self.VOICE)}行\n'
+                             f'{"" if not error else f"更新失败：表中{error}行"}',
+                             msg.sender)
         else:
             self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
@@ -327,6 +404,19 @@ class Robot(Job):
             # 添加了好友，更新好友列表
             self.allContacts[msg.sender] = nickName[0]
             self.sendTextMsg(f"Hi {nickName[0]}，我自动通过了你的好友请求。", msg.sender)
+
+    def task_send_info(self):
+        resp = info.send(self.all_user, self.wxid)
+        if resp:
+            self.LOG.info("send info success")
+        else:
+            self.LOG.info("send info failed")
+
+    def task_sync_user(self):
+        self.LOG.info("start sync_user")
+        self.config.resource["user"] = self.all_user
+        self.config.rewrite_reload()
+        self.LOG.info("complete sync_user")
 
     def tasks(self, task_type) -> None:
         receivers = self.config.GROUPS
