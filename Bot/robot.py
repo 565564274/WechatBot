@@ -50,7 +50,7 @@ class Robot(Job):
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
         self.chatgpt = ChatgptApi()
-        self.all_user = self.config.USER
+        self.all_user = self.config.USER if self.config.USER else {}
         self.all_user_lock = {}
         for key in self.all_user.keys():
             self.all_user_lock[key] = threading.Lock()
