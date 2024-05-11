@@ -69,14 +69,14 @@ class Robot(Job):
             return  # 处理完群聊信息，后面就不需要处理了
 
         # 初始化
-        if msg.sender not in self.all_user and msg.sender.startswith("wxid"):
+        if msg.sender not in self.all_user:
             self.all_user[msg.sender] = {
                 "conversation": [],
                 "voice": False,
                 "voice_scene": None,
                 "certification": False,
                 "free": 10,
-                "invitation_code": msg.sender.split("_")[-1].upper(),
+                "invitation_code": msg.sender,
                 "invitation_times": 0,
                 "invitation_input": False,
             }
@@ -161,12 +161,12 @@ class Robot(Job):
                 if msg.content == "输入邀请码":
                     self.sendTextMsg("格式为：输入邀请码XXXX\n"
                                      "如发送：\n"
-                                     "输入邀请码CLOOZE21Y79721",
+                                     "输入邀请码wxid_y84bqpzssueg22",
                                      msg.sender)
                     return
                 code = msg.content[5:]
                 for user in self.all_user:
-                    if user.upper() == f"WXID_{code}":
+                    if user == code:
                         self.add_certification(msg.sender)
                         self.all_user[msg.sender]["invitation_input"] = code
                         self.add_certification(user)
@@ -407,6 +407,7 @@ class Robot(Job):
                     continue  # Empty message
                 except Exception as e:
                     self.LOG.error(f"Receiving message error: {e}")
+                    self.LOG.error(f"Receiving message error: {str(e)}")
 
         self.wcf.enable_receiving_msg()
         Thread(target=innerProcessMsg, name="GetMessage", args=(self.wcf,), daemon=True).start()
