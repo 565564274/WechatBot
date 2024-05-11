@@ -266,7 +266,7 @@ class Robot(Job):
             self.sendTextMsg(
                 "指令如下：\n"
                 "以到期时间为起点增加X天↓\n"
-                "Tips:若到期时间小于今天，则以今天为起点增加X天"
+                "Tips:若到期时间小于今天，则以今天为起点增加X天\n"
                 "@增加激活 {账户名} {增加天数}\n\n"
                 "以到期时间为起点减少X天↓\n"
                 "@减少激活 {账户名} {减少天数}\n\n"
@@ -280,8 +280,8 @@ class Robot(Job):
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                if self.all_user[msg.sender]["certification"]:
-                    old_0 = datetime.strptime(self.all_user[msg.sender]["certification"], "%Y-%m-%d %H:%M:%S")
+                if self.all_user[order[1]]["certification"]:
+                    old_0 = datetime.strptime(self.all_user[order[1]]["certification"], "%Y-%m-%d %H:%M:%S")
                     if old_0 < datetime.now():
                         old = datetime.now()
                     else:
@@ -290,31 +290,31 @@ class Robot(Job):
                     old = datetime.now()
                 end_time = old + timedelta(days=int(order[2]))
                 end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
-                self.all_user[msg.sender]["certification"] = end_time_str
+                self.all_user[order[1]]["certification"] = end_time_str
                 self.config.resource["user"] = self.all_user
                 self.config.rewrite_reload()
-                self.sendTextMsg(f'增加成功\n账户：{msg.sender}\n过期时间：{end_time_str}', msg.sender)
+                self.sendTextMsg(f'增加成功\n账户：{order[1]}\n过期时间：{end_time_str}', msg.sender)
         elif msg.content.startswith("@减少激活"):
             order = msg.content.split(" ")
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                if self.all_user[msg.sender]["certification"]:
-                    old = datetime.strptime(self.all_user[msg.sender]["certification"], "%Y-%m-%d %H:%M:%S")
+                if self.all_user[order[1]]["certification"]:
+                    old = datetime.strptime(self.all_user[order[1]]["certification"], "%Y-%m-%d %H:%M:%S")
                 else:
                     old = datetime.now()
                 end_time = old - timedelta(days=int(order[2]))
                 end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
-                self.all_user[msg.sender]["certification"] = end_time_str
+                self.all_user[order[1]]["certification"] = end_time_str
                 self.config.resource["user"] = self.all_user
                 self.config.rewrite_reload()
-                self.sendTextMsg(f'减少成功\n账户：{msg.sender}\n过期时间：{end_time_str}', msg.sender)
+                self.sendTextMsg(f'减少成功\n账户：{order[1]}\n过期时间：{end_time_str}', msg.sender)
         elif msg.content.startswith("@查询激活"):
             order = msg.content.split(" ")
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                self.sendTextMsg(f'账户：{msg.sender}\n过期时间：{self.all_user[msg.sender]["certification"]}', msg.sender)
+                self.sendTextMsg(f'账户：{order[1]}\n过期时间：{self.all_user[order[1]]["certification"]}', msg.sender)
         elif msg.content.startswith("@更新场景"):
             self.VOICE, error = self.config.read_excel()
             self.sendTextMsg(f'更新成功：{len(self.VOICE)}行\n'
