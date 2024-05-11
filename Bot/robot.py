@@ -76,7 +76,8 @@ class Robot(Job):
                 "voice_scene": None,
                 "certification": False,
                 "free": 10,
-                "invitation_code": msg.sender,
+                "invitation_code": msg.sender.split("_")[-1].upper() if msg.sender.startswith("wxid")
+                else msg.sender,
                 "invitation_times": 0,
                 "invitation_input": False,
             }
@@ -149,7 +150,8 @@ class Robot(Job):
                 self.sendTextMsg(msg.sender, msg.sender)
                 return
             elif msg.content == "获取邀请码":
-                self.sendTextMsg(f'您的邀请码为：{self.all_user[msg.sender]["invitation_code"]}\n'
+                self.sendTextMsg(f'您的邀请码为：\n'
+                                 f'{self.all_user[msg.sender]["invitation_code"]}\n'
                                  f'查看白嫖指南 免费白嫖更多天数会员\n'
                                  f'https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink',
                                  msg.sender)
@@ -161,12 +163,12 @@ class Robot(Job):
                 if msg.content == "输入邀请码":
                     self.sendTextMsg("格式为：输入邀请码XXXX\n"
                                      "如发送：\n"
-                                     "输入邀请码wxid_y84bqpzssueg22",
+                                     "输入邀请码CLOOZE21Y79721",
                                      msg.sender)
                     return
                 code = msg.content[5:]
                 for user in self.all_user:
-                    if user == code:
+                    if self.all_user[user]["invitation_code"] == code:
                         self.add_certification(msg.sender)
                         self.all_user[msg.sender]["invitation_input"] = code
                         self.add_certification(user)
