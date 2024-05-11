@@ -109,8 +109,8 @@ class Robot(Job):
                 return
             if msg.content == "查看场景":
                 resp = "场景如下：\n"
-                for i, info in self.VOICE.items():
-                    resp += f"【{i}】 {info['name']}\n"
+                for i, voice_info in self.VOICE.items():
+                    resp += f"【{i}】 {voice_info['name']}\n"
                     if i >= 5:
                         break
                 resp += ("......\n查看全部150+语境\n"
@@ -134,46 +134,63 @@ class Robot(Job):
                         self.sendTextMsg(f'您的免费体验次数还剩：{self.all_user[msg.sender]["free"]}\n'
                                          f'充值会员畅享7x24无限次数对话\n'
                                          f'AI私教君君会员介绍\n'
-                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg',
+                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n'
+                                         f'添加客服微信：LmwL777  防丢失',
                                          msg.sender)
                     else:
                         self.sendTextMsg(f'您的免费体验次数还剩：0\n'
                                          f'充值会员畅享7x24无限次数对话\n'
                                          f'AI私教君君会员介绍\n'
-                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg',
+                                         f'https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n'
+                                         f'添加客服微信：LmwL777  防丢失',
                                          msg.sender)
                 return
             elif msg.content == "获取账户":
                 self.sendTextMsg(msg.sender, msg.sender)
                 return
             elif msg.content == "获取邀请码":
-                self.sendTextMsg(self.all_user[msg.sender]["invitation_code"], msg.sender)
+                self.sendTextMsg(f'您的邀请码为：{self.all_user[msg.sender]["invitation_code"]}\n'
+                                 f'查看白嫖指南 免费白嫖更多天数会员\n'
+                                 f'https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink',
+                                 msg.sender)
                 return
             elif msg.content.startswith("输入邀请码"):
                 if self.all_user[msg.sender]["invitation_input"]:
                     self.sendTextMsg("已经使用过邀请码", msg.sender)
                     return
-                code = msg.content[6:]
+                if msg.content == "输入邀请码":
+                    self.sendTextMsg("格式为：输入邀请码XXXX\n"
+                                     "如发送：\n"
+                                     "输入邀请码CLOOZE21Y79721",
+                                     msg.sender)
+                    return
+                code = msg.content[5:]
                 for user in self.all_user:
                     if user.upper() == f"WXID_{code}":
                         self.add_certification(msg.sender)
                         self.all_user[msg.sender]["invitation_input"] = code
                         self.add_certification(user)
                         self.all_user[user]["invitation_times"] += 1
-                        self.sendTextMsg("账户增加1天有效期", msg.sender)
+                        self.sendTextMsg("邀请绑定成功！成功获得1天会员\n"
+                                         "查看白嫖指南 免费白嫖更多天数会员\n"
+                                         "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink",
+                                         msg.sender)
                         return
-                self.sendTextMsg("无效邀请码", msg.sender)
+                self.sendTextMsg("邀请码绑定错误！请检查并重新发送", msg.sender)
                 return
             else:
                 resp = ("🌟欢迎来到AI私教君 我是您的专属英语私教🌟\n\n"
                         "输入：查看场景 可查看目前已更新的场景\n"
                         "输入：结束对话 可结束对话并选择新的场景\n"
                         "输入：获取账户 可查看账户激活码（用于会员）\n"
-                        "输入：查看激活 可查看会员到期时间\n\n"
+                        "输入：查看激活 可查看会员到期时间\n"
+                        "输入：获取邀请码 可查看账号邀请码白嫖会员\n"
+                        "输入：输入邀请码 可绑定并领取会员\n\n"
                         "AI私教君会员介绍\n"
                         "https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n"
                         "我要白嫖\n"
-                        "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink")
+                        "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink\n"
+                        "添加客服微信：LmwL777  防丢失")
                 self.sendTextMsg(resp, msg.sender)
                 return
         elif msg.type == 34:  # 语音消息
@@ -477,14 +494,17 @@ class Robot(Job):
                              "输入：查看场景 可查看目前已更新的场景\n"
                              "输入：结束对话 可结束对话并选择新的场景\n"
                              "输入：获取账户 可查看账户激活码（用于会员）\n"
-                             "输入：查看激活 可查看会员到期时间\n\n"
+                             "输入：查看激活 可查看会员到期时间\n"
+                             "输入：获取邀请码 可查看账号邀请码白嫖会员\n"
+                             "输入：输入邀请码 可绑定并领取会员\n\n"
                              "查看全部150+语境与使用教程\n"
                              "https://o0gah912m2l.feishu.cn/docx/Hx9QdablZoA5EDxpU8scxaFtn5e\n"
                              "AI私教君会员介绍\n"
                              "会员24小时无限畅享对话 会员限时优惠折上折\n"
                              "https://mp.weixin.qq.com/s/MObiyixiUrAEF9YGTg-Kyg\n"
                              "我要白嫖\n"
-                             "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink",
+                             "https://o0gah912m2l.feishu.cn/docx/ROsOdUtqwovQL5xf8MZc9r5Kn5b?from=from_copylink\n"
+                             "添加客服微信：LmwL777  不迷路",
                              msg.sender)
 
     def task_send_info(self):
