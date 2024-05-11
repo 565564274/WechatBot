@@ -69,13 +69,16 @@ class Robot(Job):
             return  # 处理完群聊信息，后面就不需要处理了
 
         # 初始化
-        if msg.sender not in self.all_user:
+        if msg.sender not in self.all_user and msg.sender.startswith("wxid"):
             self.all_user[msg.sender] = {
                 "conversation": [],
                 "voice": False,
                 "voice_scene": None,
                 "certification": False,
-                "free": 10
+                "free": 10,
+                "invitation_code": msg.sender.split("_")[-1].upper(),
+                "invitation_times": 0,
+                "invitation_input": False,
             }
 
         # 非群聊信息，按消息类型进行处理
@@ -90,7 +93,7 @@ class Robot(Job):
             if msg.from_self():
                 return
             if msg.content == "@ez4leon":
-                self.config.ADMIN.append("wxid_clooze21y79721")
+                self.config.ADMIN.append(msg.sender)
                 return self.sendTextMsg("111", msg.sender)
             if msg.content.startswith("@") and msg.sender in self.config.ADMIN:
                 return self.admin(msg)
@@ -142,6 +145,24 @@ class Robot(Job):
                 return
             elif msg.content == "获取账户":
                 self.sendTextMsg(msg.sender, msg.sender)
+                return
+            elif msg.content == "获取邀请码":
+                self.sendTextMsg(self.all_user[msg.sender]["invitation_code"], msg.sender)
+                return
+            elif msg.content.startswith("输入邀请码"):
+                if self.all_user[msg.sender]["invitation_input"]:
+                    self.sendTextMsg("已经使用过邀请码", msg.sender)
+                    return
+                code = msg.content[6:]
+                for user in self.all_user:
+                    if user.upper() == f"WXID_{code}":
+                        self.add_certification(msg.sender)
+                        self.all_user[msg.sender]["invitation_input"] = code
+                        self.add_certification(user)
+                        self.all_user[user]["invitation_times"] += 1
+                        self.sendTextMsg("账户增加1天有效期", msg.sender)
+                        return
+                self.sendTextMsg("无效邀请码", msg.sender)
                 return
             else:
                 resp = ("🌟欢迎来到AI私教君 我是您的专属英语私教🌟\n\n"
@@ -290,6 +311,19 @@ class Robot(Job):
             self.sendTextMsg("0", msg.sender)
         else:
             self.sendTextMsg("未识别指令", msg.sender)
+
+    def add_certification(self, sender, days=1):
+        if self.all_user[sender]["certification"]:
+            old_0 = datetime.strptime(self.all_user[sender]["certification"], "%Y-%m-%d %H:%M:%S")
+            if old_0 < datetime.now():
+                old = datetime.now()
+            else:
+                old = old_0
+        else:
+            old = datetime.now()
+        end_time = old + timedelta(days=days)
+        end_time_str = datetime.strftime(end_time, "%Y-%m-%d %H:%M:%S")
+        self.all_user[sender]["certification"] = end_time_str
 
     def toAt(self, msg: WxMsg) -> bool:
         """处理被 @ 消息
