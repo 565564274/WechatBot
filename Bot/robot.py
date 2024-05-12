@@ -118,7 +118,7 @@ class Robot(Job):
                          "https://o0gah912m2l.feishu.cn/docx/Hx9QdablZoA5EDxpU8scxaFtn5e\n")
                 self.sendTextMsg(resp + "请输入#+场景编号进入场景对话\n如#1", msg.sender)
                 return
-            elif msg.content.startswith("#"):
+            elif msg.content.startswith("#") or msg.content.startswith("＃"):
                 if msg.content[1:] in [str(key) for key in self.VOICE.keys()]:
                     self.sendTextMsg(f'已选择【{self.VOICE[int(msg.content[1:])]["name"]}】场景，请开始发送语音', msg.sender)
                     self.all_user[msg.sender]["voice"] = True
