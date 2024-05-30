@@ -26,7 +26,7 @@ def new_str(self) -> str:
     s += f"{'自己发的:' if self._is_self else ''}"
     s += f"{self.sender}[{self.roomid}]|{self.id}|{datetime.fromtimestamp(self.ts)}|{self.type}|{self.sign}"
     s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}\n"
-    s += self.content
+    s += f"\ncontent: {self.content}" if self.thumb else ""
     s += f"\nthumb: {self.thumb}" if self.thumb else ""
     s += f"\nextra: {self.extra}" if self.extra else ""
     return s
