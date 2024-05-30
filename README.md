@@ -26,3 +26,29 @@
 |--------|---------------------------------|
 | 1.新增群聊 | eg: @机器人 新增群聊<br/>添加群聊使机器人响应群消息 |
 | 2.删除群聊 | eg: @机器人 删除群聊<br/>删除群聊使机器人忽略群消息 |
+
+
+## Credit
+https://github.com/lich0821/WeChatFerry
+## ⭐️Star History⭐️
+<p #align="center">
+    <picture>
+      <source
+        media="(prefers-color-scheme: dark)"
+        srcset="
+          https://api.star-history.com/svg?repos=565564274/WechatBot&type=Date&theme=dark
+        "
+      />
+      <source
+        media="(prefers-color-scheme: light)"
+        srcset="
+          https://api.star-history.com/svg?repos=565564274/WechatBot&type=Date
+        "
+      />
+      <img
+        alt="WechatBot Star History"
+        width="600"
+        src="https://api.star-history.com/svg?repos=565564274/WechatBot&type=Date"
+      />
+    </picture>
+</p>
