@@ -1,6 +1,7 @@
 import re
 import time
 import xml.etree.ElementTree as ET
+import threading
 
 from wcferry import Wcf, WxMsg
 from queue import Empty
@@ -9,6 +10,7 @@ from datetime import datetime
 
 from utils.log import logger_manager
 from utils.singleton import singleton
+from data.bot_data_util import BotData
 
 from Bot.job_mgmt import Job
 from Bot.plugins.pokeme import pokeme_reply
@@ -40,6 +42,7 @@ class Robot(Job):
 
     def __init__(self, config, wcf: Wcf) -> None:
         self.wcf = wcf
+        self.bot_data = BotData()
         self.config = config
         self.LOG = logger_manager.logger
         self.wxid = self.wcf.get_self_wxid()
@@ -56,11 +59,15 @@ class Robot(Job):
 
         # 群聊消息
         if msg.from_group():
-            # 如果在群里被administrators(创建者) @
             if msg.is_at(self.wxid) and msg.sender == self.config.ADMIN:
+                # 如果在群里被administrators(创建者) @
                 return self.admin(msg)
-            if msg.roomid not in self.config.GROUPS:  # 不在配置的响应的群列表里，忽略
+            if (msg.roomid not in self.bot_data.chatroom) or (not self.bot_data.chatroom[msg.roomid]["enable"]):
+                # 不在配置的响应的群列表里，忽略
                 return
+            else:
+                self.save_msg_to_db(msg)
+
             # 如果在群里被非administrators(创建者) @
             if msg.is_at(self.wxid):  # 被@
                 # self.toAt(msg)
@@ -120,27 +127,37 @@ class Robot(Job):
             else:
                 self.toChitchat(msg)  # 闲聊
 
+    def save_msg_to_db(self, msg: WxMsg):
+        def _save(msg: WxMsg):
+            if msg.type in [1, 3, 34]:
+                # 保存 文字、图片、语音 类型的消息
+                self.bot_data.save_msg(msg)
+        t = threading.Thread(target=_save, args=(msg,))
+        t.start()
+
     def admin(self, msg: WxMsg) -> None:
         """
         处理administrators(创建者)的@消息
         :param msg: 微信消息结构
-        :return: 处理状态，`True` 成功，`False` 失败
         """
         q = re.sub(r"@.*?[\u2005|\s]", "", msg.content).replace(" ", "")
-        if q == "新增群聊":
-            if msg.roomid not in self.config.GROUPS:
-                self.config.resource["groups"]["enable"].append(msg.roomid)
-                self.config.rewrite_reload()
-                self.sendTextMsg("群聊已添加，可以开始使用。", msg.roomid, msg.sender)
+        if q == "开启":
+            if msg.roomid not in self.bot_data.chatroom:
+                self.bot_data.add_chatroom(msg.roomid)
+                self.sendTextMsg("群功能已开启，可以开始使用。", msg.roomid, msg.sender)
+            elif not self.bot_data.chatroom[msg.roomid]["enable"]:
+                self.bot_data.update_chatroom(msg.roomid, True, self.bot_data.chatroom[msg.roomid]["admin"])
+                self.sendTextMsg("群功能已开启，可以开始使用。", msg.roomid, msg.sender)
             else:
-                self.sendTextMsg("群聊已存在，无需操作。", msg.roomid, msg.sender)
-        elif q == "删除群聊":
-            if msg.roomid in self.config.GROUPS:
-                self.config.resource["groups"]["enable"].remove(msg.roomid)
-                self.config.rewrite_reload()
-                self.sendTextMsg("群聊已删除，机器人不再响应。", msg.roomid, msg.sender)
+                self.sendTextMsg("群功能已开启，无需操作。", msg.roomid, msg.sender)
+        elif q == "关闭":
+            if msg.roomid not in self.bot_data.chatroom:
+                self.sendTextMsg("群功能未开启，无需操作。", msg.roomid, msg.sender)
+            elif self.bot_data.chatroom[msg.roomid]["enable"]:
+                self.bot_data.update_chatroom(msg.roomid, False, self.bot_data.chatroom[msg.roomid]["admin"])
+                self.sendTextMsg("群功能已关闭，机器人不再响应。", msg.roomid, msg.sender)
             else:
-                self.sendTextMsg("群聊未添加，无需操作。", msg.roomid, msg.sender)
+                self.sendTextMsg("群功能未开启，无需操作。", msg.roomid, msg.sender)
         else:
             self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
@@ -293,7 +310,7 @@ class Robot(Job):
             self.sendTextMsg(f"Hi {nickName[0]}，我自动通过了你的好友请求。", msg.sender)
 
     def tasks(self, task_type) -> None:
-        receivers = self.config.GROUPS
+        receivers = self.bot_data.chatroom.keys()
         if not receivers:
             return
         if task_type == "news":
