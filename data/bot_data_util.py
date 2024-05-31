@@ -46,7 +46,9 @@ class BotData:
             self.chatroom = self.get_chatroom()
 
     def get_msg(self, roomid: str, msg_id: str):
-        data = self.engine.select(MsgHistory, roomid=roomid, msg_id=msg_id)[0]
+        data = self.engine.select(MsgHistory, roomid=roomid, msg_id=msg_id)
+        if data:
+            return data[0]
         return data
 
     def save_msg(self, msg: WxMsg, path: str = None):
