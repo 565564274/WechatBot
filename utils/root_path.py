@@ -14,4 +14,8 @@ DEFAULT_DATA_PATH = DEFAULT_PATH / "data"
 if not Path(DEFAULT_DATA_PATH).is_dir():
     Path(DEFAULT_DATA_PATH).mkdir(exist_ok=True)
 
+"""Return temp folder."""
+DEFAULT_TEMP_PATH = DEFAULT_PATH / "temp"
+if not Path(DEFAULT_TEMP_PATH).is_dir():
+    Path(DEFAULT_TEMP_PATH).mkdir(exist_ok=True)
 

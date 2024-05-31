@@ -18,7 +18,7 @@ class MsgHistory(SQLModel, table=True):
     sender: str
     roomid: str = Field(index=True)
     msg_id: str = Field(index=True)
-    ts: int
+    ts: str
     type: str
     xml: str
     content: str

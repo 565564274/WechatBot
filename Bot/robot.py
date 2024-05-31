@@ -10,6 +10,7 @@ from datetime import datetime
 
 from utils.log import logger_manager
 from utils.singleton import singleton
+from utils.root_path import DEFAULT_TEMP_PATH
 from data.bot_data_util import BotData
 
 from Bot.job_mgmt import Job
@@ -28,7 +29,7 @@ def new_str(self) -> str:
     s += f"{'自己发的:' if self._is_self else ''}"
     s += f"{self.sender}[{self.roomid}]|{self.id}|{datetime.fromtimestamp(self.ts)}|{self.type}|{self.sign}"
     s += f"\n{self.xml.replace(chr(10), '').replace(chr(9), '')}\n"
-    s += f"\ncontent: {self.content}" if self.thumb else ""
+    s += f"\ncontent: {self.content}" if self.content else ""
     s += f"\nthumb: {self.thumb}" if self.thumb else ""
     s += f"\nextra: {self.extra}" if self.extra else ""
     return s
@@ -47,6 +48,8 @@ class Robot(Job):
         self.LOG = logger_manager.logger
         self.wxid = self.wcf.get_self_wxid()
         self.allContacts = self.getAllContacts()
+        self.chatroom_member = self.get_all_chatroom_member()
+        self.member_monitor()
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -59,55 +62,56 @@ class Robot(Job):
 
         # 群聊消息
         if msg.from_group():
-            if msg.is_at(self.wxid) and msg.sender == self.config.ADMIN:
-                # 如果在群里被administrators(创建者) @
-                return self.admin(msg)
-            if (msg.roomid not in self.bot_data.chatroom) or (not self.bot_data.chatroom[msg.roomid]["enable"]):
-                # 不在配置的响应的群列表里，忽略
-                return
-            else:
+            if msg.is_at(self.wxid):
+                if self.check_is_admin(msg):
+                    # 如果在群里被管理员 @
+                    return self.admin(msg)
+                else:
+                    return self.sendTextMsg("非管理员@我无效", msg.roomid, msg.sender)
+
+            if self.check_is_start_chatroom(msg):
                 self.save_msg_to_db(msg)
+            else:
+                return
 
-            # 如果在群里被非administrators(创建者) @
-            if msg.is_at(self.wxid):  # 被@
-                # self.toAt(msg)
-                self.sendTextMsg("非创建者@我无效", msg.roomid, msg.sender)
-
-            else:  # 其他消息
-                if msg.type == 10000:  # 系统信息
-                    if "拍了拍我" in msg.content:
-                        # 1.回复拍一拍
-                        return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
-                    else:
-                        self.LOG.info("msg.type == 10000 的其他消息")
-                        return
-                elif msg.is_text():  # 文本消息
-                    if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
-                        # 2.情感语录
-                        return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["疯狂星期四", "彩虹屁", "朋友圈", "朋友圈文案"]:
-                        # 3.傻屌语录
-                        return self.sendTextMsg(shadiao(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["渣男", "绿茶"]:
-                        # 4.渣男&绿茶语录
-                        return self.sendTextMsg(zhanan_lvcha(msg.content), msg.roomid, msg.sender)
-                    elif msg.content in ["段子"]:
-                        # 5.段子
-                        return self.sendTextMsg(duanzi(), msg.roomid, msg.sender)
-                    elif msg.content in lsp.mark:
-                        status, resp, msg_type = lsp.lsp(msg.content)
-                        if status:
-                            if msg_type == "image":
-                                return self.sendImageMsg(resp, msg.roomid)
-                            else:
-                                return self.sendFileMsg(resp, msg.roomid)
+            if msg.type == 10000:  # 系统信息
+                if "拍了拍我" in msg.content:
+                    # 回复拍一拍
+                    return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
+                elif "加入了群聊" in msg.content:
+                    # 进群提醒
+                    return self.when_member_in(msg)
+                else:
+                    self.LOG.info("msg.type == 10000 的其他消息")
+                    return
+            elif msg.type == 10002:  # 撤回消息及其它
+                return self.when_msg_revoke(msg)
+            elif msg.is_text():  # 文本消息
+                if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
+                    # 2.情感语录
+                    return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
+                elif msg.content in ["疯狂星期四", "彩虹屁", "朋友圈", "朋友圈文案"]:
+                    # 3.傻屌语录
+                    return self.sendTextMsg(shadiao(msg.content), msg.roomid, msg.sender)
+                elif msg.content in ["渣男", "绿茶"]:
+                    # 4.渣男&绿茶语录
+                    return self.sendTextMsg(zhanan_lvcha(msg.content), msg.roomid, msg.sender)
+                elif msg.content in ["段子"]:
+                    # 5.段子
+                    return self.sendTextMsg(duanzi(), msg.roomid, msg.sender)
+                elif msg.content in lsp.mark:
+                    status, resp, msg_type = lsp.lsp(msg.content)
+                    if status:
+                        if msg_type == "image":
+                            return self.sendImageMsg(resp, msg.roomid)
                         else:
-                            return self.sendTextMsg(resp, msg.roomid)
+                            return self.sendFileMsg(resp, msg.roomid)
+                    else:
+                        return self.sendTextMsg(resp, msg.roomid)
 
 
                 else:
                     return
-                self.toChengyu(msg)
 
             return  # 处理完群聊信息，后面就不需要处理了
 
@@ -125,7 +129,7 @@ class Robot(Job):
                     self.config.reload()
                     self.LOG.info("已更新")
             else:
-                self.toChitchat(msg)  # 闲聊
+                pass
 
     def save_msg_to_db(self, msg: WxMsg):
         def _save(msg: WxMsg):
@@ -134,6 +138,32 @@ class Robot(Job):
                 self.bot_data.save_msg(msg)
         t = threading.Thread(target=_save, args=(msg,))
         t.start()
+
+    def check_is_admin(self, msg: WxMsg) -> bool:
+        """
+        判断是不是 administrators(创建者) 或者 群管理
+        """
+        if msg.sender == self.config.ADMIN:
+            # administrators(创建者)
+            return True
+        elif msg.roomid in self.bot_data.chatroom:
+            if msg.sender in self.bot_data.chatroom[msg.roomid]["admin"]:
+                # 群管理
+                return True
+        return False
+
+    def check_is_start_chatroom(self, msg: WxMsg) -> bool:
+        """
+        判断群功能是否开启
+        """
+        if msg.roomid not in self.bot_data.chatroom:
+            # 不在配置的群列表里
+            return False
+        elif not self.bot_data.chatroom[msg.roomid]["enable"]:
+            # 未开启群功能
+            return False
+        else:
+            return True
 
     def admin(self, msg: WxMsg) -> None:
         """
@@ -161,59 +191,98 @@ class Robot(Job):
         else:
             self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
-    def toAt(self, msg: WxMsg) -> bool:
-        """处理被 @ 消息
-        :param msg: 微信消息结构
-        :return: 处理状态，`True` 成功，`False` 失败
-        """
-        return self.toChitchat(msg)
+    def when_member_in(self, msg: WxMsg) -> None:
+        try:
+            inviter = msg.content.split("邀请")[0].replace("\"", "")
+            member = msg.content.split("邀请")[-1].replace("加入了群聊", "").replace("\"", "")
+        except Exception as e:
+            self.LOG.error(str(e))
+            return
+        self.wcf.send_rich_text(
+            name="",
+            account="",
+            title="🎉🎉欢迎进群🎉🎉",
+            digest=f"邀请人👉{inviter}\n新朋友👉{member}",
+            url="https://ez4leon.top/",
+            thumburl="",
+            receiver=msg.roomid
+        )
 
-    def toChengyu(self, msg: WxMsg) -> bool:
-        """
-        处理成语查询/接龙消息
-        :param msg: 微信消息结构
-        :return: 处理状态，`True` 成功，`False` 失败
-        """
-        status = False
-        texts = re.findall(r"^([#|?|？])(.*)$", msg.content)
-        # [('#', '天天向上')]
-        if texts:
-            flag = texts[0][0]
-            text = texts[0][1]
-            if flag == "#":  # 接龙
-                if cy.isChengyu(text):
-                    rsp = cy.getNext(text)
-                    if rsp:
-                        self.sendTextMsg(rsp, msg.roomid)
-                        status = True
-            elif flag in ["?", "？"]:  # 查词
-                if cy.isChengyu(text):
-                    rsp = cy.getMeaning(text)
-                    if rsp:
-                        self.sendTextMsg(rsp, msg.roomid)
-                        status = True
+    def get_all_chatroom_member(self) -> dict:
+        roomid_list = [roomid for roomid in self.bot_data.chatroom.keys() if self.bot_data.chatroom[roomid]["enable"]]
+        chatroom_member = {}
+        for roomid in roomid_list:
+            chatroom_member[roomid] = self.wcf.get_chatroom_members(roomid)
+        return chatroom_member
 
-        return status
+    def member_monitor(self) -> None:
+        def _monitor():
+            now = self.get_all_chatroom_member()
+            for roomid in self.chatroom_member.keys():
+                if roomid not in now:
+                    # 最新的chatroom_member无对应roomid，因为群功能已关闭
+                    continue
+                else:
+                    for wxid in self.chatroom_member[roomid].keys():
+                        if wxid not in now[roomid].keys():
+                            self.when_member_out(roomid, self.chatroom_member[roomid][wxid])
+            # 更新chatroom_member
+            self.chatroom_member = now
+        t = threading.Thread(target=_monitor, args=())
+        t.start()
 
-    def toChitchat(self, msg: WxMsg) -> bool:
-        """闲聊，接入 ChatGPT
-        """
-        if not self.chat:  # 没接 ChatGPT，固定回复
-            rsp = "你@我干嘛？"
-        else:  # 接了 ChatGPT，智能回复
-            q = re.sub(r"@.*?[\u2005|\s]", "", msg.content).replace(" ", "")
-            rsp = self.chat.get_answer(q, (msg.roomid if msg.from_group() else msg.sender))
+    def when_member_out(self, roomid: str, name: str) -> None:
+        self.sendTextMsg(f"【{name}】退出了群聊，江湖再见！", roomid)
 
-        if rsp:
-            if msg.from_group():
-                self.sendTextMsg(rsp, msg.roomid, msg.sender)
+    def when_msg_revoke(self, msg: WxMsg) -> None:
+        def _find_msg(msg: WxMsg, msg_id: str):
+            find_msg = self.bot_data.get_msg(msg.roomid, msg_id)
+            if not find_msg:
+                return
             else:
-                self.sendTextMsg(rsp, msg.sender)
+                self.sendTextMsg("啧...让我看看你撤回了什么", msg.roomid)
+                name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
+                if find_msg.type == "1":
+                    # 文本
+                    return self.sendTextMsg(f"【{name}】撤回了文本消息👇\n{find_msg.content}", msg.roomid)
+                elif find_msg.type == "3":
+                    # 图片
+                    pic_path = self.wcf.download_image(int(msg_id), find_msg.extra, str(DEFAULT_TEMP_PATH))
+                    if not pic_path:
+                        return
+                    else:
+                        self.sendTextMsg(f"【{name}】撤回了图片消息👇", msg.roomid)
+                        self.sendImageMsg(pic_path, msg.roomid)
+                        return
+                elif find_msg.type == "34":
+                    # 语音
+                    audio_path = self.wcf.get_audio_msg(int(msg_id), str(DEFAULT_TEMP_PATH), timeout=30)
+                    if not audio_path:
+                        return
+                    else:
+                        self.sendTextMsg(f"【{name}】撤回了语音消息👇", msg.roomid)
+                        self.sendFileMsg(audio_path, msg.roomid)
+                        return
+                else:
+                    # todo: 可以适配视频消息
+                    return
 
-            return True
-        else:
-            self.LOG.error(f"无法从 ChatGPT 获得答案")
-            return False
+        try:
+            xml = ET.fromstring(msg.content)
+            if xml.tag == "sysmsg" and xml.attrib["type"] == "revokemsg":
+                msg_id = xml.find('.//newmsgid').text
+                t = threading.Thread(target=_find_msg, args=(msg, msg_id))
+                t.start()
+            else:
+                self.LOG.info("msg.type == 10002 的其他消息")
+        except Exception as e:
+            self.LOG.error(f"when_msg_revoke出错：{e}")
+
+
+
+
+    ################################################################
+    ################################################################
 
     def enableReceivingMsg(self) -> None:
         def innerProcessMsg(wcf: Wcf):

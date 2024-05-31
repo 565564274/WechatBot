@@ -17,7 +17,6 @@ class ResourcePool:
     def __init__(self, resource_file_name):
         self.resource_file_name = resource_file_name
         self.resource_file_base_path = DEFAULT_CONFIG_PATH
-        self.GROUPS = None
         self.ADMIN = None
         self.resource = self.load()
 
@@ -30,7 +29,6 @@ class ResourcePool:
                 f"Local config found {resource_file_path}",
             )
             yconfig = self.load_resource_from_yaml(resource_file_path)
-            self.GROUPS = yconfig["groups"]["enable"]
             self.ADMIN = yconfig["administrators"]["wxid"]
             return yconfig
         else:
