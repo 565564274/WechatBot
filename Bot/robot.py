@@ -133,9 +133,14 @@ class Robot(Job):
 
     def save_msg_to_db(self, msg: WxMsg):
         def _save(msg: WxMsg):
-            if msg.type in [1, 3, 34]:
-                # 保存 文字、图片、语音 类型的消息
+            # 保存 文字、图片、语音 类型的消息
+            if msg.type in [1, 34]:
                 self.bot_data.save_msg(msg)
+            elif msg.type == 3:
+                time.sleep(1)
+                path = self.wcf.download_image(msg.id, msg.extra, str(DEFAULT_TEMP_PATH), timeout=10)
+                self.bot_data.save_msg(msg, path=path)
+
         t = threading.Thread(target=_save, args=(msg,))
         t.start()
 
@@ -228,44 +233,51 @@ class Robot(Job):
                             self.when_member_out(roomid, self.chatroom_member[roomid][wxid])
             # 更新chatroom_member
             self.chatroom_member = now
-        t = threading.Thread(target=_monitor, args=())
-        t.start()
+        while True:
+            t = threading.Thread(target=_monitor, args=())
+            t.start()
+            time.sleep(5)
 
     def when_member_out(self, roomid: str, name: str) -> None:
         self.sendTextMsg(f"【{name}】退出了群聊，江湖再见！", roomid)
 
     def when_msg_revoke(self, msg: WxMsg) -> None:
         def _find_msg(msg: WxMsg, msg_id: str):
-            find_msg = self.bot_data.get_msg(msg.roomid, msg_id)
-            if not find_msg:
-                return
-            else:
-                self.sendTextMsg("啧...让我看看你撤回了什么", msg.roomid)
-                name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
-                if find_msg.type == "1":
-                    # 文本
-                    return self.sendTextMsg(f"【{name}】撤回了文本消息👇\n{find_msg.content}", msg.roomid)
-                elif find_msg.type == "3":
-                    # 图片
-                    pic_path = self.wcf.download_image(int(msg_id), find_msg.extra, str(DEFAULT_TEMP_PATH))
-                    if not pic_path:
+            find_msg = None
+            for i in range(5):
+                find_msg = self.bot_data.get_msg(msg.roomid, msg_id)
+                if not find_msg:
+                    if i == 4:
                         return
-                    else:
-                        self.sendTextMsg(f"【{name}】撤回了图片消息👇", msg.roomid)
-                        self.sendImageMsg(pic_path, msg.roomid)
-                        return
-                elif find_msg.type == "34":
-                    # 语音
-                    audio_path = self.wcf.get_audio_msg(int(msg_id), str(DEFAULT_TEMP_PATH), timeout=30)
-                    if not audio_path:
-                        return
-                    else:
-                        self.sendTextMsg(f"【{name}】撤回了语音消息👇", msg.roomid)
-                        self.sendFileMsg(audio_path, msg.roomid)
-                        return
+                    time.sleep(1)
+                    continue
                 else:
-                    # todo: 可以适配视频消息
+                    break
+            self.sendTextMsg("啧...让我看看你撤回了什么", msg.roomid)
+            name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
+            if find_msg.type == "1":
+                # 文本
+                return self.sendTextMsg(f"【{name}】撤回了文本消息👇\n{find_msg.content}", msg.roomid)
+            elif find_msg.type == "3":
+                # 图片
+                if find_msg.path:
+                    self.sendTextMsg(f"【{name}】撤回了图片消息👇", msg.roomid)
+                    self.sendImageMsg(find_msg.path, msg.roomid)
+                else:
+                    self.sendTextMsg(f"【{name}】撤回的图片消息没找到[苦涩]", msg.roomid)
+                return
+            elif find_msg.type == "34":
+                # 语音
+                audio_path = self.wcf.get_audio_msg(int(msg_id), str(DEFAULT_TEMP_PATH), timeout=30)
+                if not audio_path:
                     return
+                else:
+                    self.sendTextMsg(f"【{name}】撤回了语音消息👇", msg.roomid)
+                    self.sendFileMsg(audio_path, msg.roomid)
+                    return
+            else:
+                # todo: 可以适配视频消息
+                return
 
         try:
             xml = ET.fromstring(msg.content)

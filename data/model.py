@@ -24,6 +24,7 @@ class MsgHistory(SQLModel, table=True):
     content: str
     thumb: str
     extra: str
+    path: Optional[str]
 
 
 

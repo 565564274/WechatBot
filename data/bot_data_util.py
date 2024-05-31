@@ -49,7 +49,7 @@ class BotData:
         data = self.engine.select(MsgHistory, roomid=roomid, msg_id=msg_id)[0]
         return data
 
-    def save_msg(self, msg: WxMsg):
+    def save_msg(self, msg: WxMsg, path: str = None):
         with self.lock["MsgHistory"]:
             model = MsgHistory(
                 sender=msg.sender,
@@ -61,6 +61,7 @@ class BotData:
                 content=msg.content,
                 thumb=msg.thumb,
                 extra=msg.extra,
+                path=path
             )
             self.engine.insert(model)
 
