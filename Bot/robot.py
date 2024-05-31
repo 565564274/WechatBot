@@ -239,17 +239,17 @@ class Robot(Job):
             else:
                 if q.startswith("添加违禁词"):
                     new = copy.deepcopy(self.bot_data.chatroom[msg.roomid]["ban_keywords"])
-                    new.append(q[6:])
+                    new.append(q[5:])
                     self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
-                    return self.sendTextMsg(f"已添加违禁词【{q[6:]}】", msg.roomid, msg.sender)
+                    return self.sendTextMsg(f"已添加违禁词【{q[5:]}】", msg.roomid, msg.sender)
                 elif q.startswith("删除违禁词"):
-                    if q[6:] not in self.bot_data.chatroom[msg.roomid]["ban_keywords"]:
-                        return self.sendTextMsg(f"违禁词{q[6:]}不存在", msg.roomid, msg.sender)
+                    if q[5:] not in self.bot_data.chatroom[msg.roomid]["ban_keywords"]:
+                        return self.sendTextMsg(f"违禁词{q[5:]}不存在", msg.roomid, msg.sender)
                     else:
                         new = copy.deepcopy(self.bot_data.chatroom[msg.roomid]["ban_keywords"])
-                        new.remove(q[6:])
+                        new.remove(q[5:])
                         self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
-                        return self.sendTextMsg(f"已删除违禁词【{q[6:]}】", msg.roomid, msg.sender)
+                        return self.sendTextMsg(f"已删除违禁词【{q[5:]}】", msg.roomid, msg.sender)
         else:
             self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
@@ -386,6 +386,9 @@ class Robot(Job):
             return
         elif not self.bot_data.chatroom[msg.roomid]["status_ban_keywords"]:
             # 未开启违禁词
+            return
+        elif self.check_is_admin(msg):
+            # 管理员无视
             return
         t = threading.Thread(target=_check, args=(msg,))
         t.start()
