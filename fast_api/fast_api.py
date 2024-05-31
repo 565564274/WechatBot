@@ -3,7 +3,7 @@ import threading
 import signal
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Dict, Optional
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -188,5 +188,23 @@ async def del_chatroom_members(roomid: str, wxids: str):
 async def invite_chatroom_members(roomid: str, wxids: str):
     status = wcf.invite_chatroom_members(roomid, wxids)
     return status
+
+
+@app.get("/get_dbs", tags=['DB'])
+async def get_dbs() -> List[str]:
+    dbs = wcf.get_dbs()
+    return dbs
+
+
+@app.get("/get_tables", tags=['DB'])
+async def get_tables(db: str) -> List[Dict]:
+    tables = wcf.get_tables(db)
+    return tables
+
+
+@app.post("/query_sql", tags=['DB'])
+async def query_sql(db: str, sql: str) -> List[Dict]:
+    result = wcf.query_sql(db, sql)
+    return result
 
 
