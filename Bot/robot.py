@@ -392,12 +392,12 @@ class Robot(Job):
             self.bot_data.chatroom[msg.roomid]["status_ban_keywords"],
             self.bot_data.chatroom[msg.roomid]["status_inout_monitor"],
         ]
-        content = f"""
-        [{"✔️" if status[0] else "✖️"}] 群功能
-        [{"✔️" if status[1] else "✖️"}] 防撤回
-        [{"✔️" if status[2] else "✖️"}] 违禁词
-        [{"✔️" if status[3] else "✖️"}] 退群监控
-        """
+        content = (
+            f'[{"✔️" if status[0] else "✖️"}] 群功能\n'
+            f'[{"✔️" if status[1] else "✖️"}] 防撤回\n'
+            f'[{"✔️" if status[2] else "✖️"}] 违禁词\n'
+            f'[{"✔️" if status[3] else "✖️"}] 退群监控'
+        )
         self.sendTextMsg(content, msg.roomid)
 
 
