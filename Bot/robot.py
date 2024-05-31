@@ -276,7 +276,13 @@ class Robot(Job):
 
     def member_monitor(self) -> None:
         def _monitor():
+            first = True
             while True:
+                if first:
+                    time.sleep(10)
+                    self.chatroom_member = self.get_all_chatroom_member()
+                    first = False
+                    continue
                 now = self.get_all_chatroom_member()
                 for roomid in self.chatroom_member.keys():
                     if not self.bot_data.chatroom[roomid]["status_inout_monitor"]:
