@@ -222,21 +222,22 @@ class Robot(Job):
 
     def member_monitor(self) -> None:
         def _monitor():
-            now = self.get_all_chatroom_member()
-            for roomid in self.chatroom_member.keys():
-                if roomid not in now:
-                    # 最新的chatroom_member无对应roomid，因为群功能已关闭
-                    continue
-                else:
-                    for wxid in self.chatroom_member[roomid].keys():
-                        if wxid not in now[roomid].keys():
-                            self.when_member_out(roomid, self.chatroom_member[roomid][wxid])
-            # 更新chatroom_member
-            self.chatroom_member = now
-        while True:
-            t = threading.Thread(target=_monitor, args=())
-            t.start()
-            time.sleep(5)
+            while True:
+                now = self.get_all_chatroom_member()
+                for roomid in self.chatroom_member.keys():
+                    if roomid not in now:
+                        # 最新的chatroom_member无对应roomid，因为群功能已关闭
+                        continue
+                    else:
+                        for wxid in self.chatroom_member[roomid].keys():
+                            if wxid not in now[roomid].keys():
+                                self.when_member_out(roomid, self.chatroom_member[roomid][wxid])
+                # 更新chatroom_member
+                self.chatroom_member = now
+                time.sleep(5)
+
+        t = threading.Thread(target=_monitor, args=())
+        t.start()
 
     def when_member_out(self, roomid: str, name: str) -> None:
         self.sendTextMsg(f"【{name}】退出了群聊，江湖再见！", roomid)
