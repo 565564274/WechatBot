@@ -13,6 +13,7 @@ class BotData:
         self.engine = Engine()
         self.lock = {
             "Chatroom": threading.Lock(),
+            "ChatroomBan": threading.Lock(),
             "MsgHistory": threading.Lock(),
         }
 
@@ -24,7 +25,11 @@ class BotData:
         for chatroom in data:
             result[chatroom.roomid] = {
                 "enable": chatroom.enable,
-                "admin": chatroom.admin.split(",") if chatroom.admin else []
+                "admin": chatroom.admin.split(",") if chatroom.admin else [],
+                "ban_keywords": chatroom.ban_keywords.split("|") if chatroom.ban_keywords else [],
+                "status_avoid_revoke": chatroom.status_avoid_revoke,
+                "status_ban_keywords": chatroom.status_ban_keywords,
+                "status_inout_monitor": chatroom.status_inout_monitor,
             }
         return result
 
@@ -34,14 +39,13 @@ class BotData:
             self.engine.insert(model)
             self.chatroom = self.get_chatroom()
 
-    def update_chatroom(self, roomid: str, enable: bool, admin: list[str]):
+    def update_chatroom(self, roomid: str, **kwargs):
         with self.lock["Chatroom"]:
             data = self.engine.select(Chatroom, roomid=roomid)[0]
             self.engine.update(
                 Chatroom,
                 data.id,
-                enable=enable,
-                admin=",".join(admin)
+                **kwargs
             )
             self.chatroom = self.get_chatroom()
 
@@ -51,7 +55,7 @@ class BotData:
             return data[0]
         return data
 
-    def save_msg(self, msg: WxMsg, path: str = None):
+    def add_msg(self, msg: WxMsg, path: str = None):
         with self.lock["MsgHistory"]:
             model = MsgHistory(
                 sender=msg.sender,
@@ -67,12 +71,38 @@ class BotData:
             )
             self.engine.insert(model)
 
+    def get_ban(self, roomid: str, wxid: str):
+        data = self.engine.select(ChatroomBan, roomid=roomid, wxid=wxid)
+        if data:
+            return data[0]
+        return data
 
+    def add_ban(self, roomid: str, wxid: str):
+        with self.lock["ChatroomBan"]:
+            model = ChatroomBan(
+                roomid=roomid,
+                wxid=wxid,
+            )
+            self.engine.insert(model)
+
+    def update_ban(self, roomid: str, wxid: str, **kwargs):
+        with self.lock["ChatroomBan"]:
+            data = self.engine.select(ChatroomBan, roomid=roomid, wxid=wxid)[0]
+            self.engine.update(
+                ChatroomBan,
+                data.id,
+                **kwargs
+            )
 
 
 
 if __name__ == '__main__':
     a = BotData()
-    a.add_chatroom("nnnn")
-    a.update_chatroom("nnnn", False, ["aaa","aaad"])
+    # a.add_chatroom("nnnn")
+    a.update_chatroom(
+        "20782264501@chatroom", False, ["aaa","aaad"],
+        status_avoid_revoke=True,
+        status_ban_keywords=True,
+        status_inout_monitor=False,
+    )
     a = 1

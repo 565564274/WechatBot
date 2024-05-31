@@ -13,6 +13,13 @@ class Chatroom(SQLModel, table=True):
     status_inout_monitor: bool = Field(default=True, description="是否开启：退群监控")
 
 
+class ChatroomBan(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    roomid: str = Field(index=True)
+    wxid: str = Field(index=True)
+    count: int = Field(default=1, description="违禁词次数")
+
+
 class MsgHistory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     sender: str

@@ -62,6 +62,7 @@ class Robot(Job):
 
         # 群聊消息
         if msg.from_group():
+            self.check_msg_is_ban_keyword(msg)
             if msg.is_at(self.wxid):
                 if self.check_is_admin(msg):
                     # 如果在群里被管理员 @
@@ -135,11 +136,11 @@ class Robot(Job):
         def _save(msg: WxMsg):
             # 保存 文字、图片、语音 类型的消息
             if msg.type in [1, 34]:
-                self.bot_data.save_msg(msg)
+                self.bot_data.add_msg(msg)
             elif msg.type == 3:
                 time.sleep(1)
                 path = self.wcf.download_image(msg.id, msg.extra, str(DEFAULT_TEMP_PATH), timeout=10)
-                self.bot_data.save_msg(msg, path=path)
+                self.bot_data.add_msg(msg, path=path)
 
         t = threading.Thread(target=_save, args=(msg,))
         t.start()
@@ -181,7 +182,7 @@ class Robot(Job):
                 self.bot_data.add_chatroom(msg.roomid)
                 self.sendTextMsg("群功能已开启，可以开始使用。", msg.roomid, msg.sender)
             elif not self.bot_data.chatroom[msg.roomid]["enable"]:
-                self.bot_data.update_chatroom(msg.roomid, True, self.bot_data.chatroom[msg.roomid]["admin"])
+                self.bot_data.update_chatroom(msg.roomid, enable=True)
                 self.sendTextMsg("群功能已开启，可以开始使用。", msg.roomid, msg.sender)
             else:
                 self.sendTextMsg("群功能已开启，无需操作。", msg.roomid, msg.sender)
@@ -189,10 +190,63 @@ class Robot(Job):
             if msg.roomid not in self.bot_data.chatroom:
                 self.sendTextMsg("群功能未开启，无需操作。", msg.roomid, msg.sender)
             elif self.bot_data.chatroom[msg.roomid]["enable"]:
-                self.bot_data.update_chatroom(msg.roomid, False, self.bot_data.chatroom[msg.roomid]["admin"])
+                self.bot_data.update_chatroom(msg.roomid, enable=False)
                 self.sendTextMsg("群功能已关闭，机器人不再响应。", msg.roomid, msg.sender)
             else:
                 self.sendTextMsg("群功能未开启，无需操作。", msg.roomid, msg.sender)
+        elif q in ["开启防撤回", "开启违禁词", "开启退群监控"]:
+            if q == "开启防撤回":
+                if not self.bot_data.chatroom[msg.roomid]["status_avoid_revoke"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_avoid_revoke=True)
+                    self.sendTextMsg("防撤回已开启", msg.roomid, msg.sender)
+                    return
+            elif q == "开启违禁词":
+                if not self.bot_data.chatroom[msg.roomid]["status_ban_keywords"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_ban_keywords=True)
+                    self.sendTextMsg("违禁词已开启\nTips:请给机器人设置管理，否则踢人功能将无效", msg.roomid, msg.sender)
+                    return
+            elif q == "开启退群监控":
+                if not self.bot_data.chatroom[msg.roomid]["status_inout_monitor"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_inout_monitor=True)
+                    self.sendTextMsg("退群监控已开启", msg.roomid, msg.sender)
+                    return
+            self.sendTextMsg("已开启，无需操作。", msg.roomid, msg.sender)
+        elif q in ["关闭防撤回", "关闭违禁词", "关闭退群监控"]:
+            if q == "关闭防撤回":
+                if self.bot_data.chatroom[msg.roomid]["status_avoid_revoke"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_avoid_revoke=False)
+                    self.sendTextMsg("防撤回已关闭", msg.roomid, msg.sender)
+                    return
+            elif q == "关闭违禁词":
+                if self.bot_data.chatroom[msg.roomid]["status_ban_keywords"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_ban_keywords=False)
+                    self.sendTextMsg("违禁词已关闭", msg.roomid, msg.sender)
+                    return
+            elif q == "关闭退群监控":
+                if self.bot_data.chatroom[msg.roomid]["status_inout_monitor"]:
+                    self.bot_data.update_chatroom(msg.roomid, status_inout_monitor=False)
+                    self.sendTextMsg("退群监控已关闭", msg.roomid, msg.sender)
+                    return
+            self.sendTextMsg("已关闭，无需操作。", msg.roomid, msg.sender)
+        elif q == "状态":
+            if msg.roomid not in self.bot_data.chatroom:
+                return self.sendTextMsg("群功能未曾开启，无法查看状态", msg.roomid, msg.sender)
+            self.reply_chatroom_func_status(msg)
+        elif q.startswith("添加违禁词") or q.startswith("删除违禁词"):
+            if not q[5:]:
+                return self.sendTextMsg("请输入：\n添加违禁词 XXX\n或者\n删除违禁词 XXX", msg.roomid, msg.sender)
+            else:
+                if q.startswith("添加违禁词"):
+                    new = self.bot_data.chatroom[msg.roomid]["ban_keywords"].append(q[6:])
+                    self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
+                    return self.sendTextMsg(f"已添加违禁词【{q[6:]}】", msg.roomid, msg.sender)
+                elif q.startswith("删除违禁词"):
+                    if q[6:] not in self.bot_data.chatroom[msg.roomid]["ban_keywords"]:
+                        return self.sendTextMsg(f"违禁词{q[6:]}不存在", msg.roomid, msg.sender)
+                    else:
+                        new = self.bot_data.chatroom[msg.roomid]["ban_keywords"].remove(q[6:])
+                        self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
+                        return self.sendTextMsg(f"已删除违禁词【{q[6:]}】", msg.roomid, msg.sender)
         else:
             self.sendTextMsg("未识别指令", msg.roomid, msg.sender)
 
@@ -225,8 +279,11 @@ class Robot(Job):
             while True:
                 now = self.get_all_chatroom_member()
                 for roomid in self.chatroom_member.keys():
+                    if not self.bot_data.chatroom[roomid]["status_inout_monitor"]:
+                        # 未开启退群监控
+                        continue
                     if roomid not in now:
-                        # 最新的chatroom_member无对应roomid，因为群功能已关闭
+                        # 最新的chatroom_member无对应roomid，因为群功能才开启
                         continue
                     else:
                         for wxid in self.chatroom_member[roomid].keys():
@@ -280,6 +337,9 @@ class Robot(Job):
                 # todo: 可以适配视频消息
                 return
 
+        if not self.bot_data.chatroom[msg.roomid]["status_avoid_revoke"]:
+            # 未开启防撤回
+            return
         try:
             xml = ET.fromstring(msg.content)
             if xml.tag == "sysmsg" and xml.attrib["type"] == "revokemsg":
@@ -290,6 +350,49 @@ class Robot(Job):
                 self.LOG.info("msg.type == 10002 的其他消息")
         except Exception as e:
             self.LOG.error(f"when_msg_revoke出错：{e}")
+
+    def check_msg_is_ban_keyword(self, msg: WxMsg) -> None:
+        def _check(msg: WxMsg):
+            ban_keywords_list = self.bot_data.chatroom[msg.roomid]["ban_keywords"]
+            for ban_keywords in ban_keywords_list:
+                if ban_keywords in msg.content:
+                    ban = self.bot_data.get_ban(msg.roomid, msg.sender)
+                    if not ban:
+                        self.bot_data.add_ban(msg.roomid, msg.sender)
+                        count = 1
+                    else:
+                        count = ban.count + 1
+                    if count < 3:
+                        self.bot_data.update_ban(msg.roomid, msg.sender, count=count)
+                        self.sendTextMsg(f"🈲🈲🈲\n抱歉，你发表了不当言论，已累计{count}次，请谨言慎行，累计3次将踢出群聊。", msg.roomid, msg.sender)
+                    else:
+                        self.bot_data.update_ban(msg.roomid, msg.sender, count=0)
+                        self.sendTextMsg(f"🈲🈲🈲\n抱歉，你发表了不当言论，已累计{count}次，现将你移出群聊。\n[再见][再见][再见]️", msg.roomid, msg.sender)
+                        self.wcf.del_chatroom_members(msg.roomid, msg.sender)
+
+        if msg.roomid not in self.bot_data.chatroom:
+            # 未开启群功能
+            return
+        elif not self.bot_data.chatroom[msg.roomid]["status_ban_keywords"]:
+            # 未开启违禁词
+            return
+        t = threading.Thread(target=_check, args=(msg,))
+        t.start()
+
+    def reply_chatroom_func_status(self, msg: WxMsg) -> None:
+        status = [
+            self.bot_data.chatroom[msg.roomid]["enable"],
+            self.bot_data.chatroom[msg.roomid]["status_avoid_revoke"],
+            self.bot_data.chatroom[msg.roomid]["status_ban_keywords"],
+            self.bot_data.chatroom[msg.roomid]["status_inout_monitor"],
+        ]
+        content = f"""
+        [{"✔️" if status[0] else "✖️"}] 群功能
+        [{"✔️" if status[1] else "✖️"}] 防撤回
+        [{"✔️" if status[2] else "✖️"}] 违禁词
+        [{"✔️" if status[3] else "✖️"}] 退群监控
+        """
+        self.sendTextMsg(content, msg.roomid)
 
 
 
