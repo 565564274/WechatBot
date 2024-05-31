@@ -2,6 +2,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 import threading
+import copy
 
 from wcferry import Wcf, WxMsg
 from queue import Empty
@@ -237,14 +238,16 @@ class Robot(Job):
                 return self.sendTextMsg("请输入：\n添加违禁词 XXX\n或者\n删除违禁词 XXX", msg.roomid, msg.sender)
             else:
                 if q.startswith("添加违禁词"):
-                    new = self.bot_data.chatroom[msg.roomid]["ban_keywords"].append(q[6:])
+                    new = copy.deepcopy(self.bot_data.chatroom[msg.roomid]["ban_keywords"])
+                    new.append(q[6:])
                     self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
                     return self.sendTextMsg(f"已添加违禁词【{q[6:]}】", msg.roomid, msg.sender)
                 elif q.startswith("删除违禁词"):
                     if q[6:] not in self.bot_data.chatroom[msg.roomid]["ban_keywords"]:
                         return self.sendTextMsg(f"违禁词{q[6:]}不存在", msg.roomid, msg.sender)
                     else:
-                        new = self.bot_data.chatroom[msg.roomid]["ban_keywords"].remove(q[6:])
+                        new = copy.deepcopy(self.bot_data.chatroom[msg.roomid]["ban_keywords"])
+                        new.remove(q[6:])
                         self.bot_data.update_chatroom(msg.roomid, ban_keywords="|".join(new))
                         return self.sendTextMsg(f"已删除违禁词【{q[6:]}】", msg.roomid, msg.sender)
         else:
@@ -359,6 +362,8 @@ class Robot(Job):
 
     def check_msg_is_ban_keyword(self, msg: WxMsg) -> None:
         def _check(msg: WxMsg):
+            if msg.type != 1:
+                return
             ban_keywords_list = self.bot_data.chatroom[msg.roomid]["ban_keywords"]
             for ban_keywords in ban_keywords_list:
                 if ban_keywords in msg.content:
