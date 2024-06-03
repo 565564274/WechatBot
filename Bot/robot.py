@@ -322,6 +322,7 @@ class Robot(Job):
                     break
             self.sendTextMsg("啧...让我看看你撤回了什么", msg.roomid)
             name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
+            time.sleep(0.5)
             if find_msg.type == "1":
                 # 文本
                 return self.sendTextMsg(f"【{name}】撤回了文本消息👇\n{find_msg.content}", msg.roomid)
@@ -522,6 +523,8 @@ class Robot(Job):
             return
         for r in receivers:
             # self.sendTextMsg(news, r, "notify@all")
+            # todo: 待开发开关及自定义事件
+            pass
             self.sendTextMsg(resp, r)
 
 
