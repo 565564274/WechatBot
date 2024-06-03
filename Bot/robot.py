@@ -420,7 +420,6 @@ class Robot(Job):
         )
         self.sendTextMsg(content, msg.roomid)
 
-
     def check_is_in_game(self, msg: WxMsg) -> bool:
         """
         判断群是否处于游戏中
@@ -441,6 +440,9 @@ class Robot(Job):
                 while True:
                     if not self.chatroom_game[msg.roomid]["status"]:
                         return
+                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 30:
+                        answer = self.chatroom_game[msg.roomid]["data"]["answer"]
+                        self.sendTextMsg(f"时间过半，提示信息：__{answer[1]}__{answer[3]}", msg.roomid)
                     if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 60:
                         answer = self.chatroom_game[msg.roomid]["data"]["answer"]
                         self.sendTextMsg(f"60s内无正确答案，自动结束！\n正确答案：{answer}", msg.roomid)
