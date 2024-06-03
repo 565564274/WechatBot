@@ -453,6 +453,7 @@ class Robot(Job):
 
         if msg.content[1:] == "看图猜成语":
             status, data = chengyu.chengyu()
+            self.LOG.info(f"status:{status}, data:{data}")
             if status:
                 self.sendTextMsg("【看图猜成语】已开始，请直接输入成语作答，60s后自动结束！", msg.roomid)
                 self.chatroom_game[msg.roomid] = {"game_name": "chengyu", "status": True, "start_time": int(time.time()),
