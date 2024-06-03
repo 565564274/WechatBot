@@ -437,10 +437,12 @@ class Robot(Job):
     def when_game_start(self, msg: WxMsg) -> None:
         def _count_down(msg: WxMsg):
             if self.chatroom_game[msg.roomid]["game_name"] == "chengyu":
+                promt = True
                 while True:
                     if not self.chatroom_game[msg.roomid]["status"]:
                         return
-                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 30:
+                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 30 and promt:
+                        promt = False
                         answer = self.chatroom_game[msg.roomid]["data"]["answer"]
                         self.sendTextMsg(f"时间过半，提示信息：__{answer[1]}__{answer[3]}", msg.roomid)
                     if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 60:
