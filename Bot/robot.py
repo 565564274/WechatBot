@@ -492,7 +492,7 @@ class Robot(Job):
                 resp = "[排名][得分][昵称]"
                 for i in range(len(all_game_data)):
                     name = self.wcf.get_alias_in_chatroom(all_game_data[i].wxid, all_game_data[i].roomid)
-                    resp += f"\n{i}.💯[{all_game_data[i].score}]👉{name}"
+                    resp += f"\n{i+1}.💯[{all_game_data[i].score}]👉{name}"
                 self.sendTextMsg(resp, msg.roomid)
                 return
             else:
