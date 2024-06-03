@@ -441,9 +441,9 @@ class Robot(Job):
                 while True:
                     if not self.chatroom_game[msg.roomid]["status"]:
                         return
-                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 30:
+                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 60:
                         answer = self.chatroom_game[msg.roomid]["data"]["answer"]
-                        self.sendTextMsg(f"30s内无正确答案，自动结束！\n正确答案：{answer}", msg.roomid)
+                        self.sendTextMsg(f"60s内无正确答案，自动结束！\n正确答案：{answer}", msg.roomid)
                         self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
                         return
                     else:
@@ -454,7 +454,7 @@ class Robot(Job):
         if msg.content[1:] == "看图猜成语":
             status, data = chengyu.chengyu()
             if status:
-                self.sendTextMsg("【看图猜成语】已开始，请直接输入成语作答，30s后自动结束！", msg.roomid)
+                self.sendTextMsg("【看图猜成语】已开始，请直接输入成语作答，60s后自动结束！", msg.roomid)
                 self.chatroom_game[msg.roomid] = {"game_name": "chengyu", "status": True, "start_time": int(time.time()),
                                                   "data": {"answer": data["answer"]}}
                 self.sendImageMsg(data["pic"], msg.roomid)
@@ -462,11 +462,11 @@ class Robot(Job):
                 t.start()
             else:
                 return self.sendTextMsg(data, msg.roomid)
-        elif msg.content[1:] == "结束游戏":
-            self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
-            self.sendTextMsg("游戏已结束", msg.roomid)
 
     def when_game_in_progress(self, msg: WxMsg) -> None:
+        if msg.content == "结束游戏":
+            self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
+            self.sendTextMsg("游戏已结束", msg.roomid)
         if self.chatroom_game[msg.roomid]["game_name"] == "chengyu":
             if msg.content == self.chatroom_game[msg.roomid]["data"]["answer"]:
                 self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
@@ -489,10 +489,10 @@ class Robot(Job):
                 else:
                     self.bot_data.update_game_chengyu(msg.roomid, msg.sender, score=game_data.score + 1)
                 all_game_data = self.bot_data.get_game_chengyu(all_data=True, roomid=msg.roomid)
-                resp = "【排名】【得分】【昵称】"
+                resp = "[排名][得分][昵称]"
                 for i in range(len(all_game_data)):
                     name = self.wcf.get_alias_in_chatroom(all_game_data[i].wxid, all_game_data[i].roomid)
-                    resp += f"\ni:💯[{all_game_data[i].score}]👉{name}"
+                    resp += f"\n{i}.💯[{all_game_data[i].score}]👉{name}"
                 self.sendTextMsg(resp, msg.roomid)
                 return
             else:
