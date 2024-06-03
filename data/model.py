@@ -34,6 +34,12 @@ class MsgHistory(SQLModel, table=True):
     path: Optional[str]
 
 
+class GameChengyu(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    roomid: str = Field(index=True)
+    wxid: str = Field(index=True)
+    score: int = Field(default=1, description="得分")
+
 
 
 

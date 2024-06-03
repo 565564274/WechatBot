@@ -23,6 +23,7 @@ from Bot.plugins.duanzi import duanzi
 from Bot.plugins.news import News
 from Bot.plugins import lsp
 from Bot.plugins import morning_night
+from Bot.plugins import chengyu
 
 
 def new_str(self) -> str:
@@ -51,6 +52,10 @@ class Robot(Job):
         self.allContacts = self.getAllContacts()
         self.chatroom_member = self.get_all_chatroom_member()
         self.member_monitor()
+        self.chatroom_game = {
+            "roomid": {"game_name": "", "status": False, "start_time": int(time.time()),
+                       "data": {}}
+        }
 
     def processMsg(self, msg: WxMsg) -> None:
         """当接收到消息的时候，会调用本方法。如果不实现本方法，则打印原始消息。
@@ -89,6 +94,12 @@ class Robot(Job):
             elif msg.type == 10002:  # 撤回消息及其它
                 return self.when_msg_revoke(msg)
             elif msg.is_text():  # 文本消息
+                if self.check_is_in_game(msg):
+                    return self.when_game_in_progress(msg)
+
+                if msg.content.startswith("#") or msg.content.startswith("＃"):
+                    return self.when_game_start(msg)
+
                 if msg.content in ["舔狗日记", "毒鸡汤", "社会语录"]:
                     # 2.情感语录
                     return self.sendTextMsg(get_yulu(msg.content), msg.roomid, msg.sender)
@@ -408,6 +419,87 @@ class Robot(Job):
             f'[{"✔️" if status[3] else "✖️"}] 退群监控'
         )
         self.sendTextMsg(content, msg.roomid)
+
+
+    def check_is_in_game(self, msg: WxMsg) -> bool:
+        """
+        判断群是否处于游戏中
+        """
+        if msg.roomid not in self.chatroom_game:
+            # 不在配置的群列表里
+            self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
+            return False
+        elif not self.chatroom_game[msg.roomid]["status"]:
+            # 未开启群功能
+            return False
+        else:
+            return True
+
+    def when_game_start(self, msg: WxMsg) -> None:
+        def _count_down(msg: WxMsg):
+            if self.chatroom_game[msg.roomid]["game_name"] == "chengyu":
+                while True:
+                    if not self.chatroom_game[msg.roomid]["status"]:
+                        return
+                    if (int(time.time()) - self.chatroom_game[msg.roomid]["start_time"]) >= 30:
+                        answer = self.chatroom_game[msg.roomid]["data"]["answer"]
+                        self.sendTextMsg(f"30s内无正确答案，自动结束！\n正确答案：{answer}", msg.roomid)
+                        self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
+                        return
+                    else:
+                        time.sleep(1)
+                        continue
+            return
+
+        if msg.content[1:] == "看图猜成语":
+            status, data = chengyu.chengyu()
+            if status:
+                self.sendTextMsg("【看图猜成语】已开始，请直接输入成语作答，30s后自动结束！", msg.roomid)
+                self.chatroom_game[msg.roomid] = {"game_name": "chengyu", "status": True, "start_time": int(time.time()),
+                                                  "data": {"answer": data["answer"]}}
+                self.sendImageMsg(data["pic"], msg.roomid)
+                t = threading.Thread(target=_count_down, args=(msg,))
+                t.start()
+            else:
+                return self.sendTextMsg(data, msg.roomid)
+        elif msg.content[1:] == "结束游戏":
+            self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
+            self.sendTextMsg("游戏已结束", msg.roomid)
+
+    def when_game_in_progress(self, msg: WxMsg) -> None:
+        if self.chatroom_game[msg.roomid]["game_name"] == "chengyu":
+            if msg.content == self.chatroom_game[msg.roomid]["data"]["answer"]:
+                self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
+                status, data = chengyu.chengyu_answer(msg.content)
+                name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
+                resp = f"🎉🎉恭喜【{name}】答对！🎉🎉"
+                if status:
+                    explain = (f'\n'
+                               f'【答案】{data["cycx"].split("-")[0]}\n'
+                               f'【拼音】{data["cycx"].split("-")[1]}\n'
+                               f'【解释】{data["cyjs"]}\n'
+                               f'【出处】{data["cycc"]}\n'
+                               f'【造句】{data["cyzj"]}\n')
+                else:
+                    explain = ""
+                self.sendTextMsg(resp + explain, msg.roomid)
+                game_data = self.bot_data.get_game_chengyu(roomid=msg.roomid, wxid=msg.sender)
+                if not game_data:
+                    self.bot_data.add_game_chengyu(msg.roomid, msg.sender)
+                else:
+                    self.bot_data.update_game_chengyu(msg.roomid, msg.sender, score=game_data.score + 1)
+                all_game_data = self.bot_data.get_game_chengyu(all_data=True, roomid=msg.roomid)
+                resp = "【排名】【得分】【昵称】"
+                for i in range(len(all_game_data)):
+                    name = self.wcf.get_alias_in_chatroom(all_game_data[i].wxid, all_game_data[i].roomid)
+                    resp += f"\ni:💯[{all_game_data[i].score}]👉{name}"
+                self.sendTextMsg(resp, msg.roomid)
+                return
+            else:
+                return
+        return
+
+
 
 
 

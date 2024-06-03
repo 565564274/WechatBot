@@ -15,6 +15,7 @@ class BotData:
             "Chatroom": threading.Lock(),
             "ChatroomBan": threading.Lock(),
             "MsgHistory": threading.Lock(),
+            "GameChengyu": threading.Lock(),
         }
 
         self.chatroom = self.get_chatroom()
@@ -94,11 +95,35 @@ class BotData:
                 **kwargs
             )
 
+    def get_game_chengyu(self, all_data=False, **kwargs):
+        data = self.engine.select(GameChengyu, **kwargs)
+        if data:
+            if all_data:
+                return data
+            return data[0]
+        return data
+
+    def add_game_chengyu(self, roomid: str, wxid: str):
+        with self.lock["GameChengyu"]:
+            model = GameChengyu(
+                roomid=roomid,
+                wxid=wxid,
+            )
+            self.engine.insert(model)
+
+    def update_game_chengyu(self, roomid: str, wxid: str, **kwargs):
+        with self.lock["GameChengyu"]:
+            data = self.engine.select(GameChengyu, roomid=roomid, wxid=wxid)[0]
+            self.engine.update(
+                GameChengyu,
+                data.id,
+                **kwargs
+            )
 
 
 if __name__ == '__main__':
     a = BotData()
-    # a.add_chatroom("nnnn")
+    a.get_chatroom()
     a.update_chatroom(
         "20782264501@chatroom", False, ["aaa","aaad"],
         status_avoid_revoke=True,
