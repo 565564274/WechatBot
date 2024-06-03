@@ -23,7 +23,7 @@ def chengyu_answer(text):
     url = f"https://v.api.aa1.cn/api/api-chengyu/index.php?msg={text}"
     error_msg = "[看图猜成语]插件出现故障，请联系开发者"
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=3)
         if resp.status_code != 200:
             assert False, "response code is not 200"
         return True, resp.json()
@@ -31,4 +31,5 @@ def chengyu_answer(text):
         logger.error(str(e))
         return False, error_msg
 
-
+if __name__ == '__main__':
+    chengyu_answer("一言不合")
