@@ -626,7 +626,7 @@ class Robot(Job):
         for r in receivers:
             # self.sendTextMsg(news, r, "notify@all")
             # todo: 待开发开关及自定义事件
-            pass
+            return
             self.sendTextMsg(resp, r)
 
 
