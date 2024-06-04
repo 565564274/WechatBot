@@ -477,14 +477,9 @@ class Robot(Job):
                 self.chatroom_game[msg.roomid] = {"game_name": "", "status": False}
                 status, data = chengyu.chengyu_answer(msg.content)
                 name = self.wcf.get_alias_in_chatroom(msg.sender, msg.roomid)
-                resp = f"🎉🎉恭喜【{name}】答对！🎉🎉"
+                resp = f"🎉🎉恭喜【{name}】答对🎉🎉"
                 if status:
-                    explain = (f'\n'
-                               f'【答案】{data["cycx"].split("-")[0]}\n'
-                               f'【拼音】{data["cycx"].split("-")[1]}\n'
-                               f'【解释】{data["cyjs"]}\n'
-                               f'【出处】{data["cycc"]}\n'
-                               f'【造句】{data["cyzj"]}\n')
+                    explain = data
                 else:
                     explain = ""
                 self.sendTextMsg(resp + explain, msg.roomid)
