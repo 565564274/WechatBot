@@ -274,8 +274,7 @@ class Robot(Job):
         member_dict = self.wcf.get_chatroom_members(msg.roomid)
         smallHeadImgUrl = ""
         for key, value in member_dict.items():
-            if value == "member":
-                member_wxid = key
+            if value == member:
                 data = self.wcf.query_sql("MicroMsg.db",
                                           f"SELECT * FROM ContactHeadImgUrl where usrName = \'{key}\';")
                 if data:
