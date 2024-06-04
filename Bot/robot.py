@@ -271,15 +271,21 @@ class Robot(Job):
         except Exception as e:
             self.LOG.error(str(e))
             return
-        member_dict = self.wcf.get_chatroom_members(msg.roomid)
         smallHeadImgUrl = ""
-        for key, value in member_dict.items():
-            if value == member:
-                data = self.wcf.query_sql("MicroMsg.db",
-                                          f"SELECT * FROM ContactHeadImgUrl where usrName = \'{key}\';")
-                if data:
-                    smallHeadImgUrl = data[0]["smallHeadImgUrl"]
+        find = False
+        for i in range(5):
+            member_dict = self.wcf.get_chatroom_members(msg.roomid)
+            for key, value in member_dict.items():
+                if value == member:
+                    data = self.wcf.query_sql("MicroMsg.db",
+                                              f"SELECT * FROM ContactHeadImgUrl where usrName = \'{key}\';")
+                    if data:
+                        find = True
+                        smallHeadImgUrl = data[0]["smallHeadImgUrl"]
+                    break
+            if find:
                 break
+            time.sleep(0.5)
         self.wcf.send_rich_text(
             name="",
             account="",
