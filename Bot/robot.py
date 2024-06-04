@@ -276,7 +276,7 @@ class Robot(Job):
         for i in range(5):
             member_dict = self.wcf.get_chatroom_members(msg.roomid)
             for key, value in member_dict.items():
-                if value == member:
+                if member.startswith(value):
                     data = self.wcf.query_sql("MicroMsg.db",
                                               f"SELECT * FROM ContactHeadImgUrl where usrName = \'{key}\';")
                     if data:
