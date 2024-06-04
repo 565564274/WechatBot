@@ -271,13 +271,23 @@ class Robot(Job):
         except Exception as e:
             self.LOG.error(str(e))
             return
+        member_dict = self.wcf.get_chatroom_members(msg.roomid)
+        smallHeadImgUrl = ""
+        for key, value in member_dict.items():
+            if value == "member":
+                member_wxid = key
+                data = self.wcf.query_sql("MicroMsg.db",
+                                          f"SELECT * FROM ContactHeadImgUrl where usrName = \'{key}\';")
+                if data:
+                    smallHeadImgUrl = data[0]["smallHeadImgUrl"]
+                break
         self.wcf.send_rich_text(
             name="",
             account="",
             title="🎉🎉欢迎进群🎉🎉",
             digest=f"邀请人👉{inviter}\n新朋友👉{member}",
             url="https://ez4leon.top/",
-            thumburl="",
+            thumburl=smallHeadImgUrl,
             receiver=msg.roomid
         )
 
