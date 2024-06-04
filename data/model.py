@@ -41,5 +41,13 @@ class GameChengyu(SQLModel, table=True):
     score: int = Field(default=1, description="得分")
 
 
+class GameXiuxian(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    roomid: str = Field(index=True)
+    wxid: str = Field(index=True)
+    experience: int = Field(default=0, description="经验值")
+    level: int = Field(default=0, description="境界")
+    levelname: str = Field(default="凡人", description="境界名")
+    last_xiuxian: int = Field(default=None, description="最近修仙时间")
 
 

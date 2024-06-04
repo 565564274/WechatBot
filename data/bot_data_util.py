@@ -16,6 +16,7 @@ class BotData:
             "ChatroomBan": threading.Lock(),
             "MsgHistory": threading.Lock(),
             "GameChengyu": threading.Lock(),
+            "GameXiuxian": threading.Lock(),
         }
 
         self.chatroom = self.get_chatroom()
@@ -119,6 +120,32 @@ class BotData:
                 data.id,
                 **kwargs
             )
+
+    def get_game_xiuxian(self, all_data=False, **kwargs):
+        data = self.engine.select(GameXiuxian, **kwargs)
+        if data:
+            if all_data:
+                return data
+            return data[0]
+        return data
+
+    def add_game_xiuxian(self, roomid: str, wxid: str):
+        with self.lock["GameXiuxian"]:
+            model = GameXiuxian(
+                roomid=roomid,
+                wxid=wxid,
+            )
+            self.engine.insert(model)
+
+    def update_game_xiuxian(self, roomid: str, wxid: str, **kwargs):
+        with self.lock["GameXiuxian"]:
+            data = self.engine.select(GameXiuxian, roomid=roomid, wxid=wxid)[0]
+            result = self.engine.update(
+                GameXiuxian,
+                data.id,
+                **kwargs
+            )
+            return result
 
 
 if __name__ == '__main__':
