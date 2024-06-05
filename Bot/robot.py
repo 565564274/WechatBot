@@ -126,7 +126,7 @@ class Robot(Job):
                 elif msg.content in xingzuo.mark:
                     status, resp = xingzuo.xingzuo(msg.content)
                     if status:
-                        return self.sendImageMsg(resp, msg.roomid)
+                        return self.sendImageMsg(str(resp), msg.roomid)
                     else:
                         return self.sendTextMsg(resp, msg.roomid)
 
