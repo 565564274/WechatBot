@@ -41,4 +41,4 @@ def xingzuo(text):
         logger.error(str(e))
         return False, error_msg
 
-xingzuo("狮子座")
+
