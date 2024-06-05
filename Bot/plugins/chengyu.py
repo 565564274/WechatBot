@@ -80,6 +80,7 @@ class Chengyu:
                 time.sleep(0.5)
                 continue
             else:
+                self.thread_stop = False
                 return True
         return False
 
