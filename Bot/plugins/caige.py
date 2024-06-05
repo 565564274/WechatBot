@@ -104,7 +104,7 @@ class Caige:
             resp = requests.get(url)
             if resp.status_code != 200:
                 assert False, "response code is not 200"
-            if resp.json()["code"] != "1":
+            if resp.json()["code"] != 1:
                 logger.error(str(resp.json()))
                 assert False, "resp.json()[\"code\"] code is not 200"
             data = resp.json()["data"]
