@@ -31,7 +31,7 @@ def xingzuo(text):
         resp = requests.get(url)
         if resp.status_code != 200:
             assert False, "response code is not 200"
-        if resp.headers['Content-Type'] == 'image/jpeg':
+        if resp.headers['Content-Type'] != 'image/jpeg':
             assert False, "headers is not image/jpeg"
         path = DEFAULT_TEMP_PATH / f"{int(time.time())}.jpg"
         with open(path, 'wb') as file:
@@ -41,4 +41,4 @@ def xingzuo(text):
         logger.error(str(e))
         return False, error_msg
 
-
+xingzuo("狮子座")
