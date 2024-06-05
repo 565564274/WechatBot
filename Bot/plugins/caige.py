@@ -53,7 +53,7 @@ class Caige:
             if (int(time.time()) - self.robot.chatroom_game[msg.roomid]["start_time"]) >= 30 and promt:
                 promt = False
                 answer = self.robot.chatroom_game[msg.roomid]["data"]["answer"]
-                self.robot.sendTextMsg(f"时间过半，提示信息：{answer[0]}{' __ ' * len(answer)}", msg.roomid)
+                self.robot.sendTextMsg(f"时间过半，提示信息：{answer[0]}{' __ ' * (len(answer) - 1)}", msg.roomid)
             if (int(time.time()) - self.robot.chatroom_game[msg.roomid]["start_time"]) >= 60:
                 answer = self.robot.chatroom_game[msg.roomid]["data"]["answer"]
                 self.robot.sendTextMsg(f"60s内无正确答案，自动结束！\n正确答案：{answer}", msg.roomid)
