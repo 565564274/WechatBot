@@ -44,7 +44,7 @@ class Chengyu:
         if status:
             self.robot.sendTextMsg("【看图猜成语】已开始，请直接输入成语作答，60s后自动结束！", msg.roomid)
             self.robot.chatroom_game[msg.roomid]["game_name"] = "chengyu"
-            self.robot.chatroom_game[msg.roomid]["status"] = "True"
+            self.robot.chatroom_game[msg.roomid]["status"] = True
             self.robot.chatroom_game[msg.roomid]["data"] = {"answer": data["answer"]}
             self.robot.chatroom_game[msg.roomid].update({"start_time": int(time.time())})
             self.robot.sendImageMsg(data["pic"], msg.roomid)

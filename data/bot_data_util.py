@@ -17,6 +17,7 @@ class BotData:
             "MsgHistory": threading.Lock(),
             "GameChengyu": threading.Lock(),
             "GameXiuxian": threading.Lock(),
+            "GameCaige": threading.Lock(),
         }
 
         self.chatroom = self.get_chatroom()
@@ -146,6 +147,31 @@ class BotData:
                 **kwargs
             )
             return result
+
+    def get_game_caige(self, all_data=False, **kwargs):
+        data = self.engine.select(GameCaige, **kwargs)
+        if data:
+            if all_data:
+                return data
+            return data[0]
+        return data
+
+    def add_game_caige(self, roomid: str, wxid: str):
+        with self.lock["GameCaige"]:
+            model = GameCaige(
+                roomid=roomid,
+                wxid=wxid,
+            )
+            self.engine.insert(model)
+
+    def update_game_caige(self, roomid: str, wxid: str, **kwargs):
+        with self.lock["GameCaige"]:
+            data = self.engine.select(GameCaige, roomid=roomid, wxid=wxid)[0]
+            self.engine.update(
+                GameCaige,
+                data.id,
+                **kwargs
+            )
 
 
 if __name__ == '__main__':

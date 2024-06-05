@@ -24,6 +24,7 @@ from Bot.plugins.news import News
 from Bot.plugins import lsp
 from Bot.plugins import morning_night
 from Bot.plugins.chengyu import Chengyu
+from Bot.plugins.caige import Caige
 
 
 def new_str(self) -> str:
@@ -457,12 +458,18 @@ class Robot(Job):
             self.when_game_init(msg.roomid)
             self.chatroom_game[msg.roomid]["instance"] = Chengyu(self)
             self.chatroom_game[msg.roomid]["instance"].start(msg)
+        elif msg.content[1:] == "猜歌":
+            self.when_game_init(msg.roomid)
+            self.chatroom_game[msg.roomid]["instance"] = Caige(self)
+            self.chatroom_game[msg.roomid]["instance"].start(msg)
 
     def when_game_in_progress(self, msg: WxMsg) -> None:
         if msg.content == "结束游戏":
             self.when_game_init(msg.roomid)
             self.sendTextMsg("游戏已结束", msg.roomid)
         elif self.chatroom_game[msg.roomid]["game_name"] == "chengyu":
+            self.chatroom_game[msg.roomid]["instance"].process(msg)
+        elif self.chatroom_game[msg.roomid]["game_name"] == "caige":
             self.chatroom_game[msg.roomid]["instance"].process(msg)
         return
 
