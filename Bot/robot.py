@@ -25,6 +25,7 @@ from Bot.plugins import lsp
 from Bot.plugins import morning_night
 from Bot.plugins.chengyu import Chengyu
 from Bot.plugins.caige import Caige
+from Bot.plugins import xingzuo
 
 
 def new_str(self) -> str:
@@ -122,7 +123,12 @@ class Robot(Job):
                             return self.sendFileMsg(resp, msg.roomid)
                     else:
                         return self.sendTextMsg(resp, msg.roomid)
-
+                elif msg.content in xingzuo.mark:
+                    status, resp = xingzuo.xingzuo(msg.content)
+                    if status:
+                        return self.sendImageMsg(resp, msg.roomid)
+                    else:
+                        return self.sendTextMsg(resp, msg.roomid)
 
                 else:
                     return
