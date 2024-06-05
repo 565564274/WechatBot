@@ -102,10 +102,10 @@ class Caige:
         error_msg = "[猜歌]插件出现故障，请联系开发者"
         try:
             resp = requests.get(url)
+            logger.info(str(resp.json()))
             if resp.status_code != 200:
                 assert False, "response code is not 200"
             if resp.json()["code"] != 1:
-                logger.error(str(resp.json()))
                 assert False, "resp.json()[\"code\"] code is not 200"
             data = resp.json()["data"]
             self.explain = (f'\n'
