@@ -327,6 +327,9 @@ class Robot(Job):
                     if roomid not in now:
                         # 最新的chatroom_member无对应roomid，因为群功能才开启
                         continue
+                    elif len(now[roomid]) == 0 or self.wxid not in now[roomid]:
+                        # 微信BUG，导致获取群成员为空，使bot认为所有人退出
+                        continue
                     else:
                         for wxid in self.chatroom_member[roomid].keys():
                             if wxid not in now[roomid].keys():
