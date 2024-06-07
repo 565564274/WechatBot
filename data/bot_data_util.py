@@ -105,6 +105,10 @@ class BotData:
             return data[0]
         return data
 
+    def get_game_chengyu_score(self, **kwargs):
+        data = self.engine.select_order_by(GameChengyu, ("score", "desc"), limit=10, **kwargs)
+        return data
+
     def add_game_chengyu(self, roomid: str, wxid: str):
         with self.lock["GameChengyu"]:
             model = GameChengyu(
@@ -154,6 +158,10 @@ class BotData:
             if all_data:
                 return data
             return data[0]
+        return data
+
+    def get_game_caige_score(self, **kwargs):
+        data = self.engine.select_order_by(GameCaige, ("score", "desc"), limit=10, **kwargs)
         return data
 
     def add_game_caige(self, roomid: str, wxid: str):

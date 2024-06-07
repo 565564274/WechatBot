@@ -85,11 +85,19 @@ class Caige:
                 self.robot.bot_data.add_game_caige(msg.roomid, msg.sender)
             else:
                 self.robot.bot_data.update_game_caige(msg.roomid, msg.sender, score=game_data.score + 1)
-            all_game_data = self.robot.bot_data.get_game_caige(all_data=True, roomid=msg.roomid)
+            all_game_data = self.robot.bot_data.get_game_caige_score(roomid=msg.roomid)
             resp = "[排名][得分][昵称]"
-            for i in range(len(all_game_data) if len(all_game_data) <= 10 else 10):
+            for i in range(len(all_game_data)):
+                if i == 0:
+                    icon = "🥇"
+                elif i == 1:
+                    icon = "🥈"
+                elif i == 2:
+                    icon = "🥉"
+                else:
+                    icon = "💯"
                 name = self.robot.wcf.get_alias_in_chatroom(all_game_data[i].wxid, all_game_data[i].roomid)
-                resp += f"\n{i + 1}.💯[{all_game_data[i].score}]👉{name}"
+                resp += f"\n{i + 1}.{icon}[{all_game_data[i].score}]👉{name}"
             self.robot.sendTextMsg(resp, msg.roomid)
 
             self.start(msg, is_continue=True)
