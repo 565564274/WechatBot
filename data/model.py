@@ -48,7 +48,8 @@ class GameXiuxian(SQLModel, table=True):
     experience: int = Field(default=0, description="经验值")
     level: int = Field(default=0, description="境界")
     levelname: str = Field(default="凡人", description="境界名")
-    last_xiuxian: int = Field(default=None, description="最近修仙时间")
+    allow_xiuxian: int = Field(default=None, description="允许修仙时间")
+    allow_break: int = Field(default=None, description="允许突破时间")
 
 
 class GameCaige(SQLModel, table=True):

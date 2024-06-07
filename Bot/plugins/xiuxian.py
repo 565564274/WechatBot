@@ -1,8 +1,8 @@
 import os
 import time
+import random
 
 from datetime import datetime, timedelta
-from random import randint
 
 from wcferry import WxMsg
 from data.bot_data_util import BotData
@@ -44,6 +44,17 @@ xiuxian_up= 5 #修仙提升保底
 xiuxian_ave= 10 #修仙提升波动幅度
 group_limit= 30 #群排行人数限制
 all_limit= 100 #全服排行人数限制
+
+
+cdtime_xiuxian = 2 * 60  # 修炼的冷却时间,单位分钟
+cdtime_break = 0.5 * 60  # 突破的冷却时间,单位分钟
+pill_up = 80  # 丹药提升灵力值
+pill_down = 20  # 丹药降低灵力值
+pill_per = 60  # 丹药成功概率
+
+xiuxian_up = 30  # 修仙提升保底
+xiuxian_ave = 20  # 修仙提升波动幅度
+
 
 
 power_name = ['灵力', '仙力', '魔力', '帝源', '混沌之力']
@@ -93,36 +104,86 @@ class Xiuxian:
 
     def xiuxian(self, msg: WxMsg):
         user_data = self.getUserInfo(msg)
+        if msg.content == "修炼":
+            now = int(time.time())
+            allow_xiuxian = user_data.allow_xiuxian
+            if allow_xiuxian:
+                if now < allow_xiuxian:
+                    # return f'您还在闭关中,还有{now - allow_xiuxian:.1f}秒cd'
+                    return f'对不起,修炼失败,还有{allow_xiuxian - now}秒cd'
+
+            exp = xiuxian_up + random.randint(0, xiuxian_ave)
+            user_data = self.updateUserInfo(msg,
+                                            experience=user_data.experience + exp,
+                                            allow_xiuxian=now + cdtime_xiuxian,
+                                            )
+            need, pwname = self.experience_need(user_data)
+            return (f'恭喜你获得了{exp}点{pwname}\n'
+                    f'>境界:{user_data.levelname}\n'
+                    f'>{pwname}:{user_data.experience}\n'
+                    f'>您还需要:{need}点{pwname}突破下一境界')
+        elif msg.content == "服用丹药":
+            if random.random() * 100 > (100 - pill_per):
+                user_data = self.updateUserInfo(msg,
+                                                experience=user_data.experience + pill_up,
+                                                )
+                need, pwname = self.experience_need(user_data)
+                return (f'恭喜你服用丹药成功,你获得了{pill_up}点{pwname}\n'
+                        f'>境界:{user_data.levelname}\n'
+                        f'>{pwname}:{user_data.experience}\n'
+                        f'>您还需要:{need}点{pwname}突破下一境界')
+            else:
+                user_data = self.updateUserInfo(msg,
+                                                experience=user_data.experience - pill_down,
+                                                )
+                need, pwname = self.experience_need(user_data)
+                return (f'服用失败,由于大量丹毒你损失了{pill_up}点{pwname}\n'
+                        f'>境界:{user_data.levelname}\n'
+                        f'>{pwname}:{user_data.experience}\n'
+                        f'>您还需要:{need}点{pwname}突破下一境界')
+        else:
+            pass
+
+    def break_through(self, msg: WxMsg):
+        user_data = self.getUserInfo(msg)
         now = int(time.time())
-        last_xiuxian = user_data.last_xiuxian
-        if last_xiuxian:
-            if (now - last_xiuxian) < cdtime_xiuxian:
-                return f'您还在闭关中,还有{now - last_xiuxian:.1f}秒cd'
+        allow_break = user_data.allow_break
+        if allow_break:
+            if now < allow_break:
+                return f'对不起,突破失败,还有{allow_break - now}秒cd'
 
-        exp = xiuxian_up + randint(0, xiuxian_ave)
-        user_data = self.updateUserInfo(msg,
-                                        experience=user_data.experience + exp,
-                                        last_xiuxian=now,
-                                        )
         need, pwname = self.experience_need(user_data)
+        if need != 0:
+            return f'对不起,你的修为不足,还差{need}点{pwname},请再接再厉'
+        else:
+            probability = 100 - user_data.level * 0.5 if user_data.level < 110 else 45 - user_data.level * 0.05
+            if random.random() * 100 > (100 - probability):
+                return (f'你当前境界为:{user_data.levelname},\n'
+                        f'需要时间:{user_data.levelname}\n'
+                        f'突破成功概率:{probability}%\n'
+                        f'开始突破......\n'
+                        f'>您还需要:{need}点{pwname}突破下一境界')
 
-        return (f'恭喜你获得了{exp}点${pwname}\n'
-         f'>境界:{user_data.levelname}\n'
-         f'>{pwname}:{user_data.experience}\n'
-         f'>您还需要:{need}点{pwname}突破下一境界')
 
-        msg = [segment.at(e.user_id),
-               f'\n\n#id:{user_data["id"]},\n>境界:{user_data["levelname"]},\n>{pwname}:{user_data["experience"]},\n>您还需要:{need}点{pwname}突破下一境界']
-        if len(user_id) > 30:
-            msg.append(isqbot.btn)
-        return e.reply(msg)
+        success_chance = xiuxian_ave / 100
+        if randint(1, 100) <= success_chance:
+            user_data['level'] += 1
+            user_data['levelname'] = self.bot_data.levelName(user_data)
+            user_data['experience'] = 0
+            user_data['last_break'] = now
+            user_data.save()
+            e.reply([segment.at(e.user_id), f'恭喜您成功突破到{user_data["levelname"]}'])
+        else:
+            user_data['last_break'] = now
+            user_data.save()
+            e.reply([segment.at(e.user_id), '突破失败,请稍后再试'])
+
 
     @staticmethod
     def experience_need(info):
         # 突破下一个境界所需灵力
         lev = info.level
         exerp = 1000 * (lev - 110) + 30500
-        need = 0
         if info.experience < level_exp[lev] and info.level < 111:
             need = level_exp[lev] - info.experience
         elif 110 < info.level and info.experience < exerp:
@@ -192,8 +253,8 @@ class Xiuxian:
             btn = isqbot.btn
         if not e.isMaster:
             if len(user_id) > 30:
-                return e.reply(['哈哈，你也想要我的境界吗，咦，不给你，哈哈哈哈,🤣👉🏻🤡', btn])
-            return e.reply('哈哈，你也想要我的境界吗，咦，不给你，哈哈哈哈,🤣👉🏻🤡')
+                return e.reply(['哈哈,你也想要我的境界吗,咦,不给你,哈哈哈哈,🤣👉🏻🤡', btn])
+            return e.reply('哈哈,你也想要我的境界吗,咦,不给你,哈哈哈哈,🤣👉🏻🤡')
         numreg = re.compile(r'[1-9][0-9]{0,12}')
         numret = int(numreg.search(e.msg).group())
         group_id = str(e.group_id)
@@ -214,7 +275,7 @@ class Xiuxian:
         user_data['level'] += numret
         user_data['levelname'] = self.bot_data.levelName(user_data)
         user_data.save()
-        e.reply([segment.at(e.user_id), f'恭喜您，获得了境界{numret}层'])
+        e.reply([segment.at(e.user_id), f'恭喜您,获得了境界{numret}层'])
 
         need, pwname = self.bot_data.experience(user_data)
         msg = [segment.at(e.user_id),
@@ -229,8 +290,8 @@ class Xiuxian:
             btn = isqbot.btn
         if not e.isMaster:
             if len(user_id) > 30:
-                return e.reply(['哈哈，你也想要我的灵力吗，咦，不给你，哈哈哈哈,🤣👉🏻🤡', btn])
-            return e.reply('哈哈，你也想要我的灵力吗，咦，不给你，哈哈哈哈,🤣👉🏻🤡')
+                return e.reply(['哈哈,你也想要我的灵力吗,咦,不给你,哈哈哈哈,🤣👉🏻🤡', btn])
+            return e.reply('哈哈,你也想要我的灵力吗,咦,不给你,哈哈哈哈,🤣👉🏻🤡')
         numreg = re.compile(r'[1-9][0-9]{0,12}')
         numret = int(numreg.search(e.msg).group())
         group_id = str(e.group_id)
@@ -250,7 +311,7 @@ class Xiuxian:
 
         user_data['experience'] += numret
         user_data.save()
-        e.reply([segment.at(e.user_id), f'恭喜您，获得了灵力{numret}点'])
+        e.reply([segment.at(e.user_id), f'恭喜您,获得了灵力{numret}点'])
 
         need, pwname = self.bot_data.experience(user_data)
         msg = [segment.at(e.user_id),
@@ -298,45 +359,3 @@ class Xiuxian:
         e.reply('全服加境界完成')
 
 
-
-    def break_through(self, msg: WxMsg):
-        user_id = str(e.user_id)
-        group_id = str(e.group_id)
-        user_data = self.bot_data.getUserInfo(user_id)
-        if user_data is None:
-            user_data = {
-                "experience": 0,
-                "level": 0,
-                "levelname": '凡人',
-                "group_id": group_id
-            }
-            self.bot_data.updateUserInfo(user_id, user_data)
-            user_data = self.bot_data.getUserInfo(user_id)
-
-        if group_id not in user_data['group_id']:
-            user_data['group_id'] += ',' + group_id
-            user_data.save()
-            user_data = self.bot_data.getUserInfo(user_id)
-
-        delta = timedelta(seconds=cdtime_break)
-        now = datetime.now()
-        last_break = user_data.get('last_break', now - delta)
-        if (now - last_break).total_seconds() < cdtime_break:
-            return e.reply(f'请等待冷却时间，{cdtime_break // 60}分钟后再来')
-
-        need, pwname = self.bot_data.experience(user_data)
-        if user_data['experience'] < need:
-            return e.reply(f'您的灵力不足，无法突破')
-
-        success_chance = xiuxian_ave / 100
-        if randint(1, 100) <= success_chance:
-            user_data['level'] += 1
-            user_data['levelname'] = self.bot_data.levelName(user_data)
-            user_data['experience'] = 0
-            user_data['last_break'] = now
-            user_data.save()
-            e.reply([segment.at(e.user_id), f'恭喜您成功突破到{user_data["levelname"]}'])
-        else:
-            user_data['last_break'] = now
-            user_data.save()
-            e.reply([segment.at(e.user_id), '突破失败，请稍后再试'])
