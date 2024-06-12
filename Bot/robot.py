@@ -79,12 +79,17 @@ class Robot(Job):
                     # return self.sendTextMsg("非管理员@我无效", msg.roomid, msg.sender)
                     return
 
-            if self.check_is_start_chatroom(msg):
+            if self.check_is_avoid_revoke_chatroom(msg):
+                # 防撤回保留聊天记录
                 self.save_msg_to_db(msg)
-            else:
-                return
+                if msg.type == 10002:
+                    # 撤回消息及其它
+                    return self.when_msg_revoke(msg)
 
-            if msg.type == 10000:  # 系统信息
+            if not self.check_is_start_chatroom(msg):
+                # 判断群功能是否开启
+                return
+            elif msg.type == 10000:  # 系统信息
                 if "拍了拍我" in msg.content:
                     # 回复拍一拍
                     return self.sendTextMsg(pokeme_reply(), msg.roomid, msg.sender)
@@ -94,8 +99,6 @@ class Robot(Job):
                 else:
                     self.LOG.info("msg.type == 10000 的其他消息")
                     return
-            elif msg.type == 10002:  # 撤回消息及其它
-                return self.when_msg_revoke(msg)
             elif msg.is_text():  # 文本消息
                 if self.check_is_in_game(msg):
                     return self.when_game_in_progress(msg)
@@ -138,7 +141,8 @@ class Robot(Job):
 
         # 非群聊信息，按消息类型进行处理
         if msg.type == 37:  # 好友请求
-            self.autoAcceptFriendRequest(msg)
+            return
+            # self.autoAcceptFriendRequest(msg)
 
         elif msg.type == 10000:  # 系统信息
             self.sayHiToNewFriend(msg)
@@ -187,6 +191,19 @@ class Robot(Job):
             return False
         elif not self.bot_data.chatroom[msg.roomid]["enable"]:
             # 未开启群功能
+            return False
+        else:
+            return True
+
+    def check_is_avoid_revoke_chatroom(self, msg: WxMsg) -> bool:
+        """
+        判断防撤回是否开启
+        """
+        if msg.roomid not in self.bot_data.chatroom:
+            # 不在配置的群列表里
+            return False
+        elif not self.bot_data.chatroom[msg.roomid]["status_avoid_revoke"]:
+            # 未开启防撤回
             return False
         else:
             return True
