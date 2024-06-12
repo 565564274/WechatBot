@@ -76,7 +76,8 @@ class Robot(Job):
                     # 如果在群里被管理员 @
                     return self.admin(msg)
                 else:
-                    return self.sendTextMsg("非管理员@我无效", msg.roomid, msg.sender)
+                    # return self.sendTextMsg("非管理员@我无效", msg.roomid, msg.sender)
+                    return
 
             if self.check_is_start_chatroom(msg):
                 self.save_msg_to_db(msg)
