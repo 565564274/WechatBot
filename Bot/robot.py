@@ -322,7 +322,7 @@ class Robot(Job):
         )
 
     def get_all_chatroom_member(self) -> dict:
-        roomid_list = [roomid for roomid in self.bot_data.chatroom.keys() if self.bot_data.chatroom[roomid]["enable"]]
+        roomid_list = [roomid for roomid in self.bot_data.chatroom.keys() if self.bot_data.chatroom[roomid]["status_inout_monitor"]]
         chatroom_member = {}
         for roomid in roomid_list:
             chatroom_member[roomid] = self.wcf.get_chatroom_members(roomid)
